@@ -1,0 +1,30 @@
+body {
+    font-family: Arial, sans-serif;
+    text-align: center;
+}
+
+#timeline {
+    margin: 20px;
+}
+
+.phase-btn {
+    padding: 10px 20px;
+    margin: 5px;
+    border: none;
+    background-color: #007bff;
+    color: white;
+    cursor: pointer;
+    border-radius: 5px;
+}
+
+.phase-btn:hover {
+    background-color: #0056b3;
+}
+
+svg {
+    width: 800px;
+    height: 400px;
+    margin: auto;
+    display: block;
+    border: 1px solid #ddd;
+}
