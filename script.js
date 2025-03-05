@@ -111,7 +111,7 @@ document.addEventListener("DOMContentLoaded", function () {
     .text('Project Write Up')
     .on('click', generateReport);
 
-  // Add report popup HTML to the document
+
   document.body.insertAdjacentHTML('beforeend', `
   <div class="report-popup">
     <div class="report-popup-header">
