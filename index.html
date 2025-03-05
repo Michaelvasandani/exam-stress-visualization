@@ -3,23 +3,60 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Stress Timeline Visualization</title>
+    <title>Student Stress Analysis Dashboard</title>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
     <link rel="stylesheet" href="style.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
   <body>
-    <h1>Physiological Stress Timeline of Studets Taking Their Final</h1>
+    <div class="container">
+      <header>
+        <h1>Physiological Stress Timeline of Students Taking Their Final</h1>
+        <p class="subtitle">Analyze real-time physiological indicators during examination</p>
+      </header>
 
-    <!-- Student Selection -->
-    <label for="student-select">Select Student:</label>
-    <select id="student-select"></select>
+      <div class="controls">
+        <div class="control-group">
+          <label for="student-select">Select Student:</label>
+          <select id="student-select" class="select-styled"></select>
+        </div>
 
-    <!-- Metric Selection -->
-    <label for="metric-select">Select Metric:</label>
-    <select id="metric-select"></select>
+        <div class="control-group">
+          <label for="metric-select">Select Physiological Metric:</label>
+          <select id="metric-select" class="select-styled"></select>
+        </div>
+      </div>
 
-    <!-- Visualization Container -->
-    <svg id="chart"></svg>
+      <div class="visualization-container">
+        <div class="chart-container">
+          <svg id="chart"></svg>
+        </div>
+        <div class="legend"></div>
+      </div>
+
+      <div class="stats-panel">
+        <div class="stat-card" title="The average value of the selected physiological stress metric during the exam">
+          <h3>Average Stress Level</h3>
+          <div id="avg-stress" class="stat-value">-</div>
+          <div class="stat-description">Mean value throughout the exam</div>
+        </div>
+        <div class="stat-card" title="The time when the selected stress metric reached its highest value">
+          <h3>Peak Stress Time</h3>
+          <div id="peak-stress-time" class="stat-value">-</div>
+          <div class="stat-description">When highest stress occurred</div>
+        </div>
+        <div class="stat-card" title="Standard deviation - shows how much the stress levels fluctuate over time">
+          <h3>Stress Variability</h3>
+          <div id="stress-variability" class="stat-value">-</div>
+          <div class="stat-description">Measures consistency of stress response</div>
+        </div>
+      </div>
+      
+      <div class="explanation-panel">
+        <h3>Understanding Stress Variability</h3>
+        <p>Stress variability is measured using standard deviation, which indicates how much a student's physiological stress levels fluctuate during the exam. A higher value means more erratic stress responses, while a lower value suggests more consistent stress levels. High variability may indicate moments of panic or relief throughout the exam.</p>
+      </div>
+    </div>
 
     <script src="script.js"></script>
   </body>

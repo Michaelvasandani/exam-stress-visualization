@@ -2,7 +2,18 @@ document.addEventListener("DOMContentLoaded", function () {
     // Path to the single consolidated JSON file
     const dataFilePath = "json/all_data.json";
     
-    const availableMetrics = ["EDA", "HR", "TEMP"]; // Physiological signals
+    const availableMetrics = {
+      "EDA": "Electrodermal Activity (μS)",
+      "HR": "Heart Rate (BPM)",
+      "TEMP": "Temperature (°C)"
+    };
+
+    // Metric units for display
+    const metricUnits = {
+      "EDA": "μS",
+      "HR": "BPM",
+      "TEMP": "°C"
+    };
   
     // Student Grades
     const studentGrades = {
@@ -20,55 +31,168 @@ document.addEventListener("DOMContentLoaded", function () {
   
     // Store the entire dataset once loaded
     let fullDataset = null;
+    let brushEnabled = false;
+    let currentStudent = null;
+    let currentMetric = null;
   
-    const margin = { top: 40, right: 30, bottom: 80, left: 60 },
-      width = 800 - margin.left - margin.right,
-      height = 400 - margin.top - margin.bottom;
+    // Create responsive dimensions
+    const containerWidth = document.querySelector('.chart-container').clientWidth;
+    const containerHeight = document.querySelector('.chart-container').clientHeight;
+    
+    const margin = { top: 40, right: 50, bottom: 100, left: 70 };
+    const width = containerWidth - margin.left - margin.right;
+    const height = containerHeight - margin.top - margin.bottom;
   
+    // Store original x domain for reset
+    let originalXDomain = null;
+  
+    // Create SVG and chart group
     const svg = d3
       .select("#chart")
-      .attr("width", width + margin.left + margin.right)
-      .attr("height", height + margin.top + margin.bottom);
+      .attr("width", containerWidth)
+      .attr("height", containerHeight);
   
     const chartGroup = svg
       .append("g")
       .attr("transform", `translate(${margin.left},${margin.top})`);
   
+    // Create scales
     const xScale = d3.scaleTime().range([0, width]);
     const yScale = d3.scaleLinear().range([height, 0]);
   
+    // Create line generator
     const line = d3
       .line()
-      .x((d) => xScale(d.timestamp * 1000)) // Convert Unix timestamp to milliseconds
-      .y((d) => yScale(d.value));
+      .x((d) => xScale(d.timestamp * 1000))
+      .y((d) => yScale(d.value))
+      .curve(d3.curveMonotoneX);
   
-    // Dropdowns for Student & Metric Selection
+    // Create area generator
+    const area = d3
+      .area()
+      .x((d) => xScale(d.timestamp * 1000))
+      .y0(height)
+      .y1((d) => yScale(d.value))
+      .curve(d3.curveMonotoneX);
+  
+    // Initialize brush
+    const brush = d3.brushX()
+      .extent([[0, 0], [width, height]])
+      .on("end", brushended);
+  
+    // Add toggle brush button
+    const toggleButton = d3.select('.controls')
+      .append('div')
+      .attr('class', 'control-group')
+      .append('button')
+      .attr('class', 'select-styled')
+      .attr('id', 'toggle-brush')
+      .text('Enable Zoom Selection')
+      .on('click', toggleBrush);
+  
+    // Add reset zoom button
+    const resetButton = d3.select('.controls')
+      .append('div')
+      .attr('class', 'control-group')
+      .append('button')
+      .attr('class', 'select-styled')
+      .attr('id', 'reset-zoom')
+      .text('Reset Zoom')
+      .style('display', 'none')
+      .on('click', resetZoom);
+  
+    // Populate dropdowns
     const studentSelect = d3.select("#student-select").html("");
-    for (let i = 1; i <= 10; i++) {
-      studentSelect.append("option").attr("value", `S${i}`).text(`Student ${i}`);
-    }
+    Object.keys(studentGrades).forEach((student) => {
+      studentSelect
+        .append("option")
+        .attr("value", student)
+        .text(`Student ${student.substring(1)}`);
+    });
   
     const metricSelect = d3.select("#metric-select").html("");
-    availableMetrics.forEach((metric) => {
-      metricSelect.append("option").attr("value", metric).text(metric);
+    Object.entries(availableMetrics).forEach(([value, label]) => {
+      metricSelect.append("option").attr("value", value).text(label);
     });
   
-    // Display Stats Section
-    const statsDiv = d3.select("body").append("div").attr("id", "stats");
+    // Create sample data for initial display
+    createSampleData();
   
-    // Load the consolidated data file once
-    d3.json(dataFilePath).then(function(consolidatedData) {
-      console.log("Loaded consolidated data");
-      fullDataset = consolidatedData;
-      
-      // Display initial data
+    // Handle window resize
+    window.addEventListener('resize', debounce(function() {
+      updateDimensions();
       updateChart();
-    }).catch(error => {
-      console.error("Error loading consolidated data:", error);
-    });
+    }, 250));
+  
+    function updateDimensions() {
+      const containerWidth = document.querySelector('.chart-container').clientWidth;
+      const containerHeight = document.querySelector('.chart-container').clientHeight;
+      
+      svg.attr("width", containerWidth)
+         .attr("height", containerHeight);
+      
+      const width = containerWidth - margin.left - margin.right;
+      const height = containerHeight - margin.top - margin.bottom;
+      
+      xScale.range([0, width]);
+      yScale.range([height, 0]);
+      
+      brush.extent([[0, 0], [width, height]]);
+    }
+  
+    function createSampleData() {
+      // Create sample data for initial display until real data is loaded
+      fullDataset = {};
+      
+      Object.keys(studentGrades).forEach(student => {
+        fullDataset[student] = {};
+        Object.keys(availableMetrics).forEach(metric => {
+          const data = [];
+          const startTime = new Date(2023, 0, 1, 9, 0, 0).getTime() / 1000; // 9:00 AM
+          
+          for (let i = 0; i < 120; i++) {
+            let baseValue;
+            switch(metric) {
+              case 'HR': baseValue = 70 + Math.random() * 30; break;
+              case 'EDA': baseValue = 5 + Math.random() * 10; break;
+              case 'TEMP': baseValue = 36 + Math.random() * 1.5; break;
+              default: baseValue = 10 + Math.random() * 10;
+            }
+            
+            data.push({
+              timestamp: startTime + (i * 60),
+              value: baseValue
+            });
+          }
+          
+          fullDataset[student][metric] = data;
+        });
+      });
+      
+      // Set initial selections
+      currentStudent = Object.keys(studentGrades)[0];
+      currentMetric = Object.keys(availableMetrics)[0];
+      
+      // Set dropdown values
+      document.getElementById('student-select').value = currentStudent;
+      document.getElementById('metric-select').value = currentMetric;
+      
+      updateChart();
+    }
+  
+    // Load data and initialize
+    d3.json(dataFilePath)
+      .then(function (consolidatedData) {
+        console.log("Loaded consolidated data");
+        fullDataset = consolidatedData;
+        updateChart();
+      })
+      .catch((error) => {
+        console.error("Error loading consolidated data:", error);
+        // We already have sample data, so we can continue
+      });
   
     function displayData(student, metric) {
-      // Use the data from our already-loaded dataset
       if (!fullDataset || !fullDataset[student] || !fullDataset[student][metric]) {
         console.error(`No data available for ${student}, ${metric}`);
         return;
@@ -76,75 +200,301 @@ document.addEventListener("DOMContentLoaded", function () {
       
       const data = fullDataset[student][metric];
       console.log(`Displaying data for: ${student}, ${metric}`);
-      console.log("Sample data points:", data.slice(0, 5));
   
       if (data.length === 0) {
         console.error("No valid data for this student/metric combination.");
         return;
       }
   
-      // Compute Stats: Average & Peak
-      const avgValue = d3.mean(data, (d) => d.value).toFixed(3);
-      const peakValue = d3.max(data, (d) => d.value).toFixed(3);
-      const studentGrade = studentGrades[student];
-      const gradePercentage = ((studentGrade / 200) * 100).toFixed(1) + "%";
+      // Update current selections
+      currentStudent = student;
+      currentMetric = metric;
   
-      // Update Stats Section
-      statsDiv.html(`
-        <h3>Statistics for Student ${student} (${metric})</h3>
-        <p><strong>Average ${metric}:</strong> ${avgValue}</p>
-        <p><strong>Peak ${metric}:</strong> ${peakValue}</p>
-        <p><strong>Final Exam Grade:</strong> ${studentGrade} / 200 (${gradePercentage})</p>
-      `);
-  
-      // Fix X-axis: Convert to Local Time Format
-      xScale.domain(d3.extent(data, (d) => new Date(d.timestamp * 1000)));
+      // Update scales
+      if (!originalXDomain || !brushEnabled) {
+        // Only update the domain if we're not zoomed in
+        xScale.domain(d3.extent(data, (d) => new Date(d.timestamp * 1000)));
+        originalXDomain = xScale.domain();
+      }
+      
       yScale.domain([
-        d3.min(data, (d) => d.value),
-        d3.max(data, (d) => d.value),
+        d3.min(data, (d) => d.value) * 0.95,
+        d3.max(data, (d) => d.value) * 1.05
       ]);
   
-      // Clear previous chart elements
+      // Clear previous elements
       chartGroup.selectAll("*").remove();
   
-      // Format X-axis
+      // Create a clip path to ensure the chart doesn't overflow
+      chartGroup.append("defs")
+        .append("clipPath")
+        .attr("id", "chart-area-clip")
+        .append("rect")
+        .attr("width", width)
+        .attr("height", height)
+        .attr("x", 0)
+        .attr("y", 0);
+  
+      // Create a group for all chart elements that should be clipped
+      const chartArea = chartGroup.append("g")
+        .attr("clip-path", "url(#chart-area-clip)");
+  
+      // Add gradient
+      const gradient = chartGroup.append("defs")
+        .append("linearGradient")
+        .attr("id", "area-gradient")
+        .attr("gradientUnits", "userSpaceOnUse")
+        .attr("x1", 0)
+        .attr("y1", yScale(d3.min(data, d => d.value)))
+        .attr("x2", 0)
+        .attr("y2", yScale(d3.max(data, d => d.value)));
+  
+      gradient.append("stop")
+        .attr("offset", "0%")
+        .attr("stop-color", "var(--primary-color)")
+        .attr("stop-opacity", 0.1);
+  
+      gradient.append("stop")
+        .attr("offset", "100%")
+        .attr("stop-color", "var(--primary-color)")
+        .attr("stop-opacity", 0.4);
+  
+      // Add area (inside clip path)
+      chartArea.append("path")
+        .datum(data)
+        .attr("class", "area")
+        .attr("d", area)
+        .style("fill", "url(#area-gradient)");
+  
+      // Add line (inside clip path)
+      chartArea.append("path")
+        .datum(data)
+        .attr("class", "line")
+        .attr("d", line);
+  
+      // Format axes
       const xAxis = d3
         .axisBottom(xScale)
         .ticks(d3.timeHour.every(1))
         .tickFormat(d3.timeFormat("%I:%M %p"));
   
-      // Add Axes
+      // Add axes
       chartGroup
         .append("g")
-        .attr("transform", `translate(0, ${height})`)
-        .call(xAxis);
+        .attr("class", "x axis")
+        .attr("transform", `translate(0,${height})`)
+        .call(xAxis)
+        .selectAll("text")
+        .style("text-anchor", "end")
+        .attr("dx", "-.8em")
+        .attr("dy", ".15em")
+        .attr("transform", "rotate(-45)");
   
-      chartGroup.append("g").call(d3.axisLeft(yScale));
-  
-      // Draw Line
       chartGroup
-        .append("path")
-        .datum(data)
-        .attr("fill", "none")
-        .attr("stroke", "blue")
-        .attr("stroke-width", 2)
-        .attr("d", line);
+        .append("g")
+        .attr("class", "y axis")
+        .call(d3.axisLeft(yScale));
   
-      console.log("Line chart updated successfully.");
+      // Add axis labels
+      chartGroup.append("text")
+        .attr("class", "x-label")
+        .attr("text-anchor", "middle")
+        .attr("x", width / 2)
+        .attr("y", height + margin.bottom - 10)
+        .text("Time");
+  
+      chartGroup.append("text")
+        .attr("class", "y-label")
+        .attr("text-anchor", "middle")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -margin.left + 15)
+        .text(`${availableMetrics[metric]} (${metricUnits[metric]})`);
+  
+      // Add interactive dots (inside clip path)
+      const dots = chartArea.selectAll(".dot")
+        .data(data)
+        .enter()
+        .append("circle")
+        .attr("class", "dot")
+        .attr("cx", d => xScale(d.timestamp * 1000))
+        .attr("cy", d => yScale(d.value))
+        .attr("r", 3)
+        .style("opacity", 0)
+        .style("fill", "var(--primary-color)");
+  
+      // Add tooltip
+      const tooltip = d3.select(".visualization-container")
+        .append("div")
+        .attr("class", "tooltip")
+        .style("opacity", 0);
+  
+      // Add hover interactions
+      dots.on("mouseover", function(event, d) {
+        const dot = d3.select(this);
+        dot.style("opacity", 1)
+           .attr("r", 5);
+        
+        tooltip.transition()
+          .duration(200)
+          .style("opacity", 0.9);
+        
+        const time = new Date(d.timestamp * 1000);
+        tooltip.html(
+          `Time: ${time.toLocaleTimeString()}<br/>
+           Value: ${d.value.toFixed(2)} ${metricUnits[metric]}`
+        )
+        .style("left", (event.pageX + 10) + "px")
+        .style("top", (event.pageY - 28) + "px");
+      })
+      .on("mouseout", function() {
+        d3.select(this)
+          .style("opacity", 0)
+          .attr("r", 3);
+        
+        tooltip.transition()
+          .duration(500)
+          .style("opacity", 0);
+      });
+  
+      // Add brush if enabled (inside clip path)
+      if (brushEnabled) {
+        chartArea.append("g")
+          .attr("class", "brush")
+          .call(brush);
+      }
+  
+      // Update statistics
+      updateStats(data, student, metric);
     }
   
-    // Event Listener for Student & Metric Selection
+    function updateStats(data, student, metric) {
+      // Calculate statistics
+      const avgValue = d3.mean(data, d => d.value).toFixed(2);
+      const peakValue = d3.max(data, d => d.value);
+      const peakTime = new Date(data.find(d => d.value === peakValue).timestamp * 1000);
+      const variability = d3.deviation(data, d => d.value).toFixed(2);
+      const grade = studentGrades[student];
+      const gradePercent = ((grade / 200) * 100).toFixed(1);
+      const unit = metricUnits[metric];
+  
+      // Update stat cards with explanations
+      document.getElementById("avg-stress").textContent = `${avgValue} ${unit}`;
+      document.getElementById("avg-stress").title = `The mean ${availableMetrics[metric]} throughout the exam period`;
+  
+      document.getElementById("peak-stress-time").textContent = peakTime.toLocaleTimeString();
+      document.getElementById("peak-stress-time").title = `The time when the ${availableMetrics[metric]} reached its highest value (${peakValue.toFixed(2)} ${unit})`;
+  
+      document.getElementById("stress-variability").textContent = `${variability} ${unit}`;
+      document.getElementById("stress-variability").title = `Standard deviation - indicates how much the ${metric} values fluctuate from the average`;
+  
+      // Add grade information
+      const statsPanel = document.querySelector(".stats-panel");
+      if (!document.getElementById("grade-card")) {
+        const gradeCard = document.createElement("div");
+        gradeCard.id = "grade-card";
+        gradeCard.className = "stat-card";
+        gradeCard.title = "The student's final score out of 200 points";
+        gradeCard.innerHTML = `
+          <h3>Final Grade</h3>
+          <div class="stat-value">${grade}/200 (${gradePercent}%)</div>
+          <div class="stat-description">Exam score</div>
+        `;
+        statsPanel.appendChild(gradeCard);
+      } else {
+        const gradeValue = document.querySelector("#grade-card .stat-value");
+        gradeValue.textContent = `${grade}/200 (${gradePercent}%)`;
+      }
+    }
+  
+    function toggleBrush() {
+      brushEnabled = !brushEnabled;
+      toggleButton.text(brushEnabled ? 'Disable Zoom Selection' : 'Enable Zoom Selection');
+      resetButton.style('display', brushEnabled ? 'block' : 'none');
+      
+      // Log the current state for debugging
+      console.log(`Brush enabled: ${brushEnabled}`);
+      
+      updateChart();
+    }
+  
+    function resetZoom() {
+      if (originalXDomain) {
+        console.log("Resetting zoom to original domain:", originalXDomain);
+        xScale.domain(originalXDomain);
+        updateChart();
+      }
+    }
+  
+    function brushended(event) {
+      // Only proceed if there's a selection
+      if (!event.selection) {
+        console.log("No brush selection");
+        return;
+      }
+      
+      console.log("Brush selection:", event.selection);
+      
+      // Store original domain if not stored
+      if (!originalXDomain) {
+        originalXDomain = xScale.domain();
+        console.log("Stored original domain:", originalXDomain);
+      }
+      
+      // Get the selected domain
+      const extent = event.selection.map(d => xScale.invert(d));
+      console.log("New domain from brush:", extent);
+      
+      // Update the x-scale domain
+      xScale.domain(extent);
+      
+      // Remove the brush
+      chartGroup.select(".brush").call(brush.move, null);
+      
+      // Show reset button
+      resetButton.style('display', 'block');
+      
+      // Update the chart with the new domain
+      updateChart();
+    }
+  
     function updateChart() {
       if (!fullDataset) {
         console.log("Dataset not yet loaded, waiting...");
         return;
       }
       
-      let selectedStudent = document.getElementById("student-select").value;
-      let selectedMetric = document.getElementById("metric-select").value;
+      const selectedStudent = document.getElementById("student-select").value;
+      const selectedMetric = document.getElementById("metric-select").value;
+      
+      // Log for debugging
+      console.log(`Updating chart for ${selectedStudent}, ${selectedMetric}`);
+      console.log(`Current domain: ${xScale.domain()}`);
+      
       displayData(selectedStudent, selectedMetric);
     }
   
-    studentSelect.on("change", updateChart);
-    metricSelect.on("change", updateChart);
+    // Event listeners
+    studentSelect.on("change", function() {
+      // Reset zoom when changing student
+      if (originalXDomain) {
+        xScale.domain(originalXDomain);
+        originalXDomain = null;
+      }
+      updateChart();
+    });
+    
+    metricSelect.on("change", function() {
+      // Keep zoom when changing metric
+      updateChart();
+    });
   });
+
+// Debounce function
+function debounce(func, wait) {
+  let timeout;
+  return function(...args) {
+    clearTimeout(timeout);
+    timeout = setTimeout(() => func.apply(this, args), wait);
+  };
+}
