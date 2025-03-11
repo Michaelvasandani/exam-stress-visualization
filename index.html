@@ -3,60 +3,286 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Stress Analysis Dashboard</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <title>The Physiology of Test Anxiety</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>Physiological Stress Timeline of Students Taking Their Final</h1>
-        <p class="subtitle">Analyze real-time physiological indicators during examination</p>
-      </header>
+    <header>
+      <h1>The Physiology of Test Anxiety</h1>
+      <p>
+        An explorable explanation of how our bodies respond during high-stakes
+        exams
+      </p>
+    </header>
 
-      <div class="controls">
-        <div class="control-group">
-          <label for="student-select">Select Student:</label>
-          <select id="student-select" class="select-styled"></select>
+    <nav>
+      <ul>
+        <li><a href="#introduction">Introduction</a></li>
+        <li><a href="#body-map">Body Map</a></li>
+        <li><a href="#timeline">Timeline</a></li>
+        <li><a href="#comparison">Student Comparison</a></li>
+        <li><a href="#conclusion">Conclusion</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="introduction">
+        <h2>Understanding Test Anxiety</h2>
+        <p>
+          Test anxiety is more than just a feeling - it's a complex
+          physiological response that can be measured and visualized. This
+          interactive exploration uses real data from students during three exam
+          sessions (two midterms and a final) to reveal how our bodies respond
+          to academic stress.
+        </p>
+
+        <div class="data-info">
+          <h3>About the Data:</h3>
+          <p>
+            This visualization uses physiological data collected from 10
+            students during exams using the Empatica E4 wearable device, which
+            measures:
+          </p>
+          <ul>
+            <li>
+              <strong>Electrodermal Activity (EDA)</strong>: Skin conductance
+              measured in microsiemens (μS), indicating sympathetic nervous
+              system arousal
+            </li>
+            <li>
+              <strong>Heart Rate (HR)</strong>: Beats per minute (BPM)
+              calculated from the blood volume pulse signal
+            </li>
+            <li>
+              <strong>Blood Volume Pulse (BVP)</strong>: Changes in blood volume
+              with each heartbeat
+            </li>
+            <li>
+              <strong>Skin Temperature (TEMP)</strong>: Measured in degrees
+              Celsius (°C)
+            </li>
+            <li>
+              <strong>Inter-Beat Interval (IBI)</strong>: Time between
+              heartbeats in seconds (s)
+            </li>
+            <li>
+              <strong>Accelerometer Data (ACC)</strong>: Movement measured in
+              g-force (1/64g units)
+            </li>
+          </ul>
+          <p>
+            All midterm exams lasted 1.5 hours while the final exam was 3 hours
+            long. All exams started at 9:00 AM.
+          </p>
         </div>
 
-        <div class="control-group">
-          <label for="metric-select">Select Physiological Metric:</label>
-          <select id="metric-select" class="select-styled"></select>
+        <div class="exam-selector">
+          <h3>Select an Exam:</h3>
+          <select id="exam-select">
+            <option value="Midterm_1">Midterm 1</option>
+            <option value="Midterm_2">Midterm 2</option>
+            <option value="Final">Final</option>
+          </select>
         </div>
-      </div>
 
-      <div class="visualization-container">
-        <div class="chart-container">
-          <svg id="chart"></svg>
+        <div class="student-selector">
+          <h3>Select Students to Compare:</h3>
+          <div id="student-checkboxes">
+            <!-- Student checkboxes will be added dynamically with JavaScript -->
+          </div>
         </div>
-        <div class="legend"></div>
-      </div>
+      </section>
 
-      <div class="stats-panel">
-        <div class="stat-card" title="The average value of the selected physiological stress metric during the exam">
-          <h3>Average Stress Level</h3>
-          <div id="avg-stress" class="stat-value">-</div>
-          <div class="stat-description">Mean value throughout the exam</div>
+      <section id="body-map">
+        <h2>Interactive Body Map</h2>
+        <p>
+          Click on different parts of the body to explore physiological
+          responses during exams
+        </p>
+
+        <div class="body-map-container">
+          <div id="body-visualization"></div>
+          <div id="body-metrics">
+            <h3>Physiological Metrics</h3>
+            <div id="selected-metric-display">
+              <p>Click on a body part to see related metrics</p>
+            </div>
+          </div>
         </div>
-        <div class="stat-card" title="The time when the selected stress metric reached its highest value">
-          <h3>Peak Stress Time</h3>
-          <div id="peak-stress-time" class="stat-value">-</div>
-          <div class="stat-description">When highest stress occurred</div>
+      </section>
+
+      <section id="timeline">
+        <h2>Timeline Explorer</h2>
+        <p>
+          Explore how physiological metrics change throughout the exam duration
+        </p>
+
+        <div class="timeline-controls">
+          <button id="play-pause">▶️ Play</button>
+          <input type="range" id="time-slider" min="0" max="100" value="0" />
+          <span id="current-time">Start of exam</span>
         </div>
-        <div class="stat-card" title="Standard deviation - shows how much the stress levels fluctuate over time">
-          <h3>Stress Variability</h3>
-          <div id="stress-variability" class="stat-value">-</div>
-          <div class="stat-description">Measures consistency of stress response</div>
+
+        <div id="timeline-visualization"></div>
+
+        <div class="metric-selector">
+          <h3>Select Metrics to Display:</h3>
+          <div id="metric-checkboxes">
+            <label
+              ><input type="checkbox" name="metric" value="EDA" checked />
+              Electrodermal Activity (EDA)</label
+            >
+            <label
+              ><input type="checkbox" name="metric" value="HR" checked /> Heart
+              Rate (HR)</label
+            >
+            <label
+              ><input type="checkbox" name="metric" value="BVP" /> Blood Volume
+              Pulse (BVP)</label
+            >
+            <label
+              ><input type="checkbox" name="metric" value="TEMP" /> Skin
+              Temperature (TEMP)</label
+            >
+            <label
+              ><input type="checkbox" name="metric" value="IBI" /> Inter-Beat
+              Interval (IBI)</label
+            >
+            <label
+              ><input type="checkbox" name="metric" value="ACC" /> Movement
+              (ACC)</label
+            >
+          </div>
         </div>
-      </div>
-      
-      <div class="explanation-panel">
-        <h3>Understanding Stress Variability</h3>
-        <p>Stress variability is measured using standard deviation, which indicates how much a student's physiological stress levels fluctuate during the exam. A higher value means more erratic stress responses, while a lower value suggests more consistent stress levels. High variability may indicate moments of panic or relief throughout the exam.</p>
-      </div>
-    </div>
+      </section>
+
+      <section id="comparison">
+        <h2>Student Comparison Dashboard</h2>
+        <p>
+          Compare physiological responses between students with different
+          performance levels
+        </p>
+
+        <div class="comparison-controls">
+          <div class="metric-selector">
+            <label for="x-axis-select">X-Axis Metric:</label>
+            <select id="x-axis-select">
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR">Average Heart Rate</option>
+              <option value="avgBVP">Average BVP</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR">Heart Rate Variability</option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+            </select>
+          </div>
+
+          <div class="metric-selector">
+            <label for="y-axis-select">Y-Axis Metric:</label>
+            <select id="y-axis-select">
+              <option value="grade">Grade</option>
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR" selected>Average Heart Rate</option>
+              <option value="avgBVP">Average BVP</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR">Heart Rate Variability</option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+            </select>
+          </div>
+
+          <div class="bubble-size-selector">
+            <label for="bubble-size-select">Bubble Size:</label>
+            <select id="bubble-size-select">
+              <option value="grade">Grade</option>
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR">Average Heart Rate</option>
+              <option value="avgBVP">Average BVP</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR" selected>
+                Heart Rate Variability
+              </option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+              <option value="constant">Constant Size</option>
+            </select>
+          </div>
+
+          <div class="performance-filter">
+            <label for="performance-select">Filter by Performance:</label>
+            <select id="performance-select">
+              <option value="all">All Students</option>
+              <option value="high">High Performers</option>
+              <option value="medium">Medium Performers</option>
+              <option value="low">Low Performers</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="comparison-visualization"></div>
+
+        <div class="insights">
+          <h3>Key Insights:</h3>
+          <ul id="insights-list">
+            <!-- Insights will be populated dynamically -->
+          </ul>
+        </div>
+      </section>
+
+      <section id="conclusion">
+        <h2>Understanding Your Own Test Anxiety</h2>
+        <p>
+          Based on the patterns we've observed, here are some strategies to
+          manage physiological responses during exams:
+        </p>
+        <ul>
+          <li>Controlled breathing techniques to regulate heart rate</li>
+          <li>Brief movement breaks to reduce muscle tension</li>
+          <li>Mindfulness practices to moderate electrodermal activity</li>
+          <li>
+            Temperature regulation strategies for optimal cognitive performance
+          </li>
+        </ul>
+
+        <p>
+          Remember that some level of physiological arousal can actually enhance
+          performance - the key is finding your optimal zone.
+        </p>
+      </section>
+      <!-- Add this section to your index.html file -->
+      <section id="stress-recovery">
+        <h2>Stress Recovery Patterns</h2>
+        <p>
+          Analyze how quickly students recover from physiological stress spikes
+          during the exam.
+        </p>
+
+        <div class="recovery-controls">
+          <label for="recovery-metric-select">Stress Indicator:</label>
+          <select id="recovery-metric-select">
+            <option value="EDA" selected>Electrodermal Activity (EDA)</option>
+            <option value="HR">Heart Rate (HR)</option>
+            <option value="BVP">Blood Volume Pulse (BVP)</option>
+          </select>
+
+          <button id="analyze-recovery-btn" class="btn">
+            Analyze Recovery Patterns
+          </button>
+        </div>
+
+        <div id="recovery-visualization" class="recovery-visualization">
+          <!-- Visualization will be inserted here -->
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created for Data Visualization Final Project</p>
+    </footer>
 
     <script src="script.js"></script>
   </body>
