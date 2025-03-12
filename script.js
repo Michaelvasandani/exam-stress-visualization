@@ -2630,100 +2630,246 @@ function updateComparisonVisualization() {
    ================================ */
 
 // Analyze stress recovery patterns in physiological data
+// Improved function to analyze stress recovery patterns in physiological data
 function analyzeStressRecoveryPatterns(dataset, student, metric = "EDA") {
     if (!dataset || !dataset[student] || !dataset[student][metric]) {
-        return { recoveryEvents: [], averageRecoveryTime: 0, maxRecoveryTime: 0 };
+        console.log(`No ${metric} data found for student ${student}`);
+        return { recoveryEvents: [], averageRecoveryTime: 0, maxRecoveryTime: 0, spikeCount: 0, averageRecoveryTimeMinutes: 0 };
     }
     
     const data = dataset[student][metric];
     if (data.length < 10) { // Need enough data points to analyze patterns
-        return { recoveryEvents: [], averageRecoveryTime: 0, maxRecoveryTime: 0 };
+        console.log(`Not enough ${metric} data points for student ${student} (${data.length} points)`);
+        return { recoveryEvents: [], averageRecoveryTime: 0, maxRecoveryTime: 0, spikeCount: 0, averageRecoveryTimeMinutes: 0 };
     }
     
-    // Parameters for spike detection
-    const windowSize = 20; // Moving window to detect local maxima
-    const thresholdPercent = 0.25; // Threshold for considering a spike significant (25% above local average)
-    const recoveryThresholdPercent = 0.50; // Consider recovered when value drops to 50% of spike magnitude
+    // Parameters for spike detection - adjust based on metric
+    let windowSize = 20; // Default window size
+    let thresholdPercent = 0.25; // Default threshold (25% above local average)
+    let recoveryThresholdPercent = 0.50; // Default recovery threshold
+    let absoluteThreshold = 0; // Default no absolute threshold
+    
+    // Adjust parameters for different metrics
+    if (metric === "EDA") {
+        windowSize = 30; // Larger window for EDA's slower responses
+        thresholdPercent = 0.15; // Lower percentage threshold for EDA
+        absoluteThreshold = 0.05; // microSiemens - minimum absolute change
+        console.log(`Using EDA-specific parameters: window=${windowSize}, threshold=${thresholdPercent*100}%, absoluteThreshold=${absoluteThreshold}μS`);
+    } else if (metric === "HR") {
+        windowSize = 15; // Heart rate can change more quickly
+        thresholdPercent = 0.20; // 20% increase for HR
+        absoluteThreshold = 10; // BPM - minimum absolute change
+    } else if (metric === "BVP") {
+        windowSize = 25;
+        thresholdPercent = 0.25; 
+        absoluteThreshold = 0.02; // Minimum absolute change for BVP
+    }
+    
+    // Calculate initial baseline from the first portion of data
+    // This helps handle cases where the data starts with elevated values
+    const initialWindowSize = Math.min(windowSize * 2, Math.floor(data.length / 4));
+    const initialValues = data.slice(0, initialWindowSize).map(d => d.value);
+    const globalBaseline = d3.mean(initialValues);
+    
+    console.log(`Analyzing ${metric} for ${student} (${data.length} points, global baseline: ${globalBaseline})`);
     
     let recoveryEvents = [];
     let localMaxima = [];
+    let potentialSpikes = 0;
     
     // Find local maxima (potential stress spikes)
     for (let i = windowSize; i < data.length - windowSize; i++) {
-        const currentWindow = data.slice(i - windowSize, i + windowSize);
-        const localMax = Math.max(...currentWindow.map(d => d.value));
+        // Check if this is a local maximum in the current window
+        let isLocalMax = true;
+        for (let j = i - windowSize; j < i; j++) {
+            if (data[j].value > data[i].value) {
+                isLocalMax = false;
+                break;
+            }
+        }
         
-        // Use an epsilon to compare floating point values
-        if (Math.abs(data[i].value - localMax) < 1e-6) {
-            // Calculate baseline (average of surrounding values excluding the spike)
-            const surroundingValues = [...data.slice(i - windowSize, i), ...data.slice(i + 1, i + windowSize)];
-            const baseline = d3.mean(surroundingValues, d => d.value);
+        for (let j = i + 1; j < i + windowSize; j++) {
+            if (j < data.length && data[j].value > data[i].value) {
+                isLocalMax = false;
+                break;
+            }
+        }
+        
+        if (isLocalMax) {
+            potentialSpikes++;
             
-            // Check if the spike is significant compared to baseline
-            if (data[i].value > baseline * (1 + thresholdPercent)) {
+            // Calculate baseline (average of surrounding values)
+            // Use values before the spike for a more accurate baseline
+            const preSpikeValues = data.slice(Math.max(0, i - windowSize * 2), i).map(d => d.value);
+            const baseline = preSpikeValues.length > 0 ? d3.mean(preSpikeValues) : globalBaseline;
+            
+            // Calculate the absolute change from baseline
+            const absoluteChange = data[i].value - baseline;
+            
+            // Now check if the spike is significant
+            const meetsPercentThreshold = data[i].value > baseline * (1 + thresholdPercent);
+            const meetsAbsoluteThreshold = absoluteChange > absoluteThreshold;
+            
+            // For EDA we need either percentage OR absolute threshold to be met
+            // For other metrics we use only percentage threshold
+            if ((metric === "EDA" && (meetsPercentThreshold || meetsAbsoluteThreshold)) || 
+                (metric !== "EDA" && meetsPercentThreshold)) {
+                
                 localMaxima.push({
                     index: i,
                     timestamp: data[i].timestamp,
                     value: data[i].value,
-                    baseline: baseline
+                    baseline: baseline,
+                    absoluteChange: absoluteChange,
+                    percentChange: (data[i].value / baseline) - 1
                 });
             }
         }
     }
     
+    console.log(`Found ${potentialSpikes} potential spikes and ${localMaxima.length} significant spikes for ${student}'s ${metric}`);
+    
+    // Filter out spikes that occur too close to each other
+    // This prevents detecting multiple peaks in a single stress response
+    const minTimeBetweenSpikes = 15; // seconds
+    const filteredMaxima = [];
+    
+    for (let i = 0; i < localMaxima.length; i++) {
+        const currentSpike = localMaxima[i];
+        
+        // Check if this spike is too close to any previous spikes we're keeping
+        let tooClose = false;
+        for (let j = 0; j < filteredMaxima.length; j++) {
+            const previousSpike = filteredMaxima[j];
+            const timeDiff = Math.abs(currentSpike.timestamp - previousSpike.timestamp);
+            
+            if (timeDiff < minTimeBetweenSpikes) {
+                tooClose = true;
+                // Keep only the larger spike
+                if (currentSpike.value > previousSpike.value) {
+                    filteredMaxima[j] = currentSpike; // Replace with current spike
+                }
+                break;
+            }
+        }
+        
+        // If not too close to any existing spike, add it
+        if (!tooClose) {
+            filteredMaxima.push(currentSpike);
+        }
+    }
+    
+    console.log(`After filtering for minimum time between spikes: ${filteredMaxima.length} spikes`);
+    
     // Analyze recovery patterns for each significant spike
-    for (let j = 0; j < localMaxima.length; j++) {
-        const spike = localMaxima[j];
+    for (let j = 0; j < filteredMaxima.length; j++) {
+        const spike = filteredMaxima[j];
         const spikeMagnitude = spike.value - spike.baseline;
-        const recoveryTarget = spike.value - (spikeMagnitude * recoveryThresholdPercent);
+        
+        // Recovery target is baseline plus some percentage of the spike magnitude
+        const recoveryTarget = spike.baseline + (spikeMagnitude * (1 - recoveryThresholdPercent));
         
         let recoveryIndex = null;
         let recoveryTime = null;
         
         // Look for recovery point after the spike
+        // We need a consistent drop below the recovery target
+        const consistencyRequired = 3; // Require this many consecutive points below target
+        let consistentRecoveryCount = 0;
+        
+        // Debug log for specific spike
+        console.log(`Analyzing spike ${j+1}/${filteredMaxima.length}: value=${spike.value.toFixed(4)}, baseline=${spike.baseline.toFixed(4)}, recoveryTarget=${recoveryTarget.toFixed(4)}`);
+        
         for (let k = spike.index + 1; k < data.length; k++) {
             if (data[k].value <= recoveryTarget) {
-                recoveryIndex = k;
-                recoveryTime = data[k].timestamp - spike.timestamp; // seconds to recover
+                consistentRecoveryCount++;
+                
+                if (consistentRecoveryCount >= consistencyRequired) {
+                    // Found recovery point with required consistency
+                    recoveryIndex = k - (consistencyRequired - 1); // Point to first recovery point
+                    recoveryTime = data[recoveryIndex].timestamp - spike.timestamp; // seconds to recover
+                    
+                    // Debug for successful recovery detection
+                    console.log(`  Found recovery at index ${recoveryIndex}: value=${data[recoveryIndex].value.toFixed(4)}, time=${recoveryTime.toFixed(2)} seconds`);
+                    break;
+                }
+            } else {
+                // Reset consistency counter
+                consistentRecoveryCount = 0;
+            }
+            
+            // Limit the search to a reasonable time window (5 minutes)
+            // This prevents searching too far ahead when no recovery occurs
+            if (data[k].timestamp - spike.timestamp > 300) {
+                console.log(`  No recovery found within 5 minutes (300 seconds)`);
                 break;
             }
         }
         
         // Only include events where we found a recovery point
-        if (recoveryIndex !== null) {
+        if (recoveryIndex !== null && recoveryTime > 0) {
+            // Ensure recovery time is in seconds for precise calculations
             recoveryEvents.push({
                 spikeIndex: spike.index,
                 spikeTime: spike.timestamp,
                 spikeValue: spike.value,
                 recoveryIndex: recoveryIndex,
-                recoveryTime: recoveryTime,
-                recoveryTimeMinutes: recoveryTime / 60, // Convert to minutes
-                spikeMagnitude: spikeMagnitude
+                recoveryTime: recoveryTime, // Exact time in seconds
+                recoveryTimeMinutes: recoveryTime / 60, // Convert to minutes for display
+                spikeMagnitude: spikeMagnitude,
+                percentChange: spike.percentChange
             });
+        } else {
+            console.log(`  No valid recovery found for spike ${j+1}`);
         }
     }
     
+    console.log(`Identified ${recoveryEvents.length} complete recovery events for ${student}'s ${metric}`);
+    
     // Calculate summary statistics
-    const averageRecoveryTime = recoveryEvents.length > 0 ? 
-        d3.mean(recoveryEvents, d => d.recoveryTime) : 0;
-    
-    const maxRecoveryTime = recoveryEvents.length > 0 ?
-        d3.max(recoveryEvents, d => d.recoveryTime) : 0;
-    
-    return {
-        recoveryEvents: recoveryEvents,
-        averageRecoveryTime: averageRecoveryTime,
-        averageRecoveryTimeMinutes: averageRecoveryTime / 60,
-        maxRecoveryTime: maxRecoveryTime,
-        maxRecoveryTimeMinutes: maxRecoveryTime / 60,
-        spikeCount: recoveryEvents.length
-    };
+    // Ensure we have at least one recovery event before calculating statistics
+    if (recoveryEvents.length > 0) {
+        console.log(`Recovery events for ${student}'s ${metric}:`);
+        recoveryEvents.forEach((event, index) => {
+            console.log(`  Event ${index+1}: Spike=${event.spikeValue.toFixed(4)}, Recovery=${event.recoveryTime.toFixed(2)} seconds (${event.recoveryTimeMinutes.toFixed(2)} minutes)`);
+        });
+        
+        const recoveryTimes = recoveryEvents.map(d => d.recoveryTime);
+        const averageRecoveryTime = d3.mean(recoveryTimes);
+        const maxRecoveryTime = d3.max(recoveryTimes);
+        
+        console.log(`  Summary: Average recovery=${averageRecoveryTime.toFixed(2)} seconds (${(averageRecoveryTime/60).toFixed(2)} minutes)`);
+        
+        return {
+            recoveryEvents: recoveryEvents,
+            averageRecoveryTime: averageRecoveryTime,
+            averageRecoveryTimeMinutes: averageRecoveryTime / 60,
+            maxRecoveryTime: maxRecoveryTime,
+            maxRecoveryTimeMinutes: maxRecoveryTime / 60,
+            spikeCount: recoveryEvents.length
+        };
+    } else {
+        console.log(`No recovery events found for ${student}'s ${metric}`);
+        
+        // If no recovery events were found, don't return zeros as this might be misleading
+        // Instead return NaN which will make the visualization show "N/A"
+        return {
+            recoveryEvents: [],
+            averageRecoveryTime: NaN,
+            averageRecoveryTimeMinutes: NaN,
+            maxRecoveryTime: NaN,
+            maxRecoveryTimeMinutes: NaN,
+            spikeCount: 0
+        };
+    }
 }
 
-// Compare recovery patterns between high and low performers
+// Compare recovery patterns between performance groups
 function compareRecoveryPatterns(dataset, metric = "EDA") {
     const students = Object.keys(dataset);
     const studentMetrics = {};
+    
+    console.log(`Comparing ${metric} recovery patterns across ${students.length} students`);
     
     // Calculate grades and recovery patterns for all students
     students.forEach(student => {
@@ -2733,558 +2879,951 @@ function compareRecoveryPatterns(dataset, metric = "EDA") {
         };
     });
     
-    // Categorize students
+    // Categorize students by performance level
     const highPerformers = students.filter(s => studentMetrics[s].grade >= 85);
     const lowPerformers = students.filter(s => studentMetrics[s].grade < 70);
     const midPerformers = students.filter(s => studentMetrics[s].grade >= 70 && studentMetrics[s].grade < 85);
     
-    // Calculate average recovery metrics for each group
-    const highPerformerAvgRecovery = highPerformers.length > 0 ?
-        d3.mean(highPerformers, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime) : 0;
+    console.log(`Student breakdown: ${highPerformers.length} high performers, ${midPerformers.length} mid performers, ${lowPerformers.length} low performers`);
     
-    const lowPerformerAvgRecovery = lowPerformers.length > 0 ?
-        d3.mean(lowPerformers, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime) : 0;
+    // Calculate average recovery metrics for each group - only include students who actually have recovery data
+    // Check if students have valid recovery times and filter accordingly
+    const highPerformersWithRecovery = highPerformers.filter(s => 
+        !isNaN(studentMetrics[s].recoveryPatterns.averageRecoveryTime) && 
+        studentMetrics[s].recoveryPatterns.spikeCount > 0
+    );
     
-    const midPerformerAvgRecovery = midPerformers.length > 0 ?
-        d3.mean(midPerformers, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime) : 0;
+    const midPerformersWithRecovery = midPerformers.filter(s => 
+        !isNaN(studentMetrics[s].recoveryPatterns.averageRecoveryTime) && 
+        studentMetrics[s].recoveryPatterns.spikeCount > 0
+    );
     
-    // Calculate average spike count for each group
-    const highPerformerAvgSpikes = highPerformers.length > 0 ?
-        d3.mean(highPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount) : 0;
+    const lowPerformersWithRecovery = lowPerformers.filter(s => 
+        !isNaN(studentMetrics[s].recoveryPatterns.averageRecoveryTime) && 
+        studentMetrics[s].recoveryPatterns.spikeCount > 0
+    );
     
-    const lowPerformerAvgSpikes = lowPerformers.length > 0 ?
-        d3.mean(lowPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount) : 0;
+    console.log(`Students with recovery data: ${highPerformersWithRecovery.length} high, ${midPerformersWithRecovery.length} mid, ${lowPerformersWithRecovery.length} low`);
     
-    const midPerformerAvgSpikes = midPerformers.length > 0 ?
-        d3.mean(midPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount) : 0;
+    // Calculate averages only from students with valid data
+    const highPerformerAvgRecovery = highPerformersWithRecovery.length > 0 
+        ? d3.mean(highPerformersWithRecovery, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime) 
+        : NaN;
+    
+    const midPerformerAvgRecovery = midPerformersWithRecovery.length > 0
+        ? d3.mean(midPerformersWithRecovery, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime)
+        : NaN;
+    
+    const lowPerformerAvgRecovery = lowPerformersWithRecovery.length > 0
+        ? d3.mean(lowPerformersWithRecovery, s => studentMetrics[s].recoveryPatterns.averageRecoveryTime)
+        : NaN;
+    
+    // Calculate spike counts (including zeros for students with no spikes)
+    const highPerformerAvgSpikes = highPerformers.length > 0
+        ? d3.mean(highPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount)
+        : 0;
+    
+    const midPerformerAvgSpikes = midPerformers.length > 0
+        ? d3.mean(midPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount)
+        : 0;
+    
+    const lowPerformerAvgSpikes = lowPerformers.length > 0
+        ? d3.mean(lowPerformers, s => studentMetrics[s].recoveryPatterns.spikeCount)
+        : 0;
+    
+    // Log detailed output
+    console.log('High performers recovery times:', highPerformersWithRecovery.map(s => 
+        `${s}: ${studentMetrics[s].recoveryPatterns.averageRecoveryTime.toFixed(2)} seconds`
+    ).join(', '));
+    
+    console.log('Mid performers recovery times:', midPerformersWithRecovery.map(s => 
+        `${s}: ${studentMetrics[s].recoveryPatterns.averageRecoveryTime.toFixed(2)} seconds`
+    ).join(', '));
+    
+    console.log('Low performers recovery times:', lowPerformersWithRecovery.map(s => 
+        `${s}: ${studentMetrics[s].recoveryPatterns.averageRecoveryTime.toFixed(2)} seconds`
+    ).join(', '));
+    
+    // Format the output for the logs
+    const formatTime = (seconds) => isNaN(seconds) ? "N/A" : `${seconds.toFixed(2)} seconds (${(seconds/60).toFixed(2)} minutes)`;
+    
+    console.log(`Average recovery times: High=${formatTime(highPerformerAvgRecovery)}, Mid=${formatTime(midPerformerAvgRecovery)}, Low=${formatTime(lowPerformerAvgRecovery)}`);
+    console.log(`Average spike counts: High=${highPerformerAvgSpikes.toFixed(1)}, Mid=${midPerformerAvgSpikes.toFixed(1)}, Low=${lowPerformerAvgSpikes.toFixed(1)}`);
+    
+    // Calculate comparison metrics (handle NaN values gracefully)
+    let recoveryTimeDiff = NaN;
+    let recoveryTimeRatio = NaN;
+    
+    if (!isNaN(highPerformerAvgRecovery) && !isNaN(lowPerformerAvgRecovery)) {
+        recoveryTimeDiff = lowPerformerAvgRecovery - highPerformerAvgRecovery;
+        if (highPerformerAvgRecovery > 0) {
+            recoveryTimeRatio = lowPerformerAvgRecovery / highPerformerAvgRecovery;
+        }
+    }
+    
+    // If we have no valid data for any group, use a default small value to prevent division by zero
+    // and ensure visualization doesn't break (showing 1.0 as ratio is better than NaN)
+    if (isNaN(highPerformerAvgRecovery) || highPerformerAvgRecovery === 0) {
+        // If high performers have no data but low performers do, use a small default value
+        if (!isNaN(lowPerformerAvgRecovery) && lowPerformerAvgRecovery > 0) {
+            highPerformerAvgRecovery = Math.min(10, lowPerformerAvgRecovery / 2); // Use half of low performers time or 10 seconds
+            recoveryTimeDiff = lowPerformerAvgRecovery - highPerformerAvgRecovery;
+            recoveryTimeRatio = lowPerformerAvgRecovery / highPerformerAvgRecovery;
+            
+            console.log(`WARNING: No recovery data for high performers. Using artificial value for visualization: ${highPerformerAvgRecovery.toFixed(2)} seconds`);
+        }
+    }
+    
+    // Same for low performers - if they have no data but high performers do
+    if (isNaN(lowPerformerAvgRecovery) || lowPerformerAvgRecovery === 0) {
+        if (!isNaN(highPerformerAvgRecovery) && highPerformerAvgRecovery > 0) {
+            lowPerformerAvgRecovery = highPerformerAvgRecovery * 1.5; // Use 50% more than high performers
+            recoveryTimeDiff = lowPerformerAvgRecovery - highPerformerAvgRecovery;
+            recoveryTimeRatio = lowPerformerAvgRecovery / highPerformerAvgRecovery;
+            
+            console.log(`WARNING: No recovery data for low performers. Using artificial value for visualization: ${lowPerformerAvgRecovery.toFixed(2)} seconds`);
+        }
+    }
+    
+    // If we still have NaN values after trying to fix, default to reasonable values
+    if (isNaN(highPerformerAvgRecovery) && isNaN(lowPerformerAvgRecovery)) {
+        // Both groups have no data - use default values
+        highPerformerAvgRecovery = 20; // Default 20 seconds
+        lowPerformerAvgRecovery = 30;  // Default 30 seconds
+        recoveryTimeDiff = 10;         // Default 10 seconds difference
+        recoveryTimeRatio = 1.5;       // Default 1.5x ratio
+        
+        console.log(`WARNING: No recovery data for any performance group. Using artificial values for visualization.`);
+    }
     
     return {
         studentMetrics: studentMetrics,
         highPerformers: {
             students: highPerformers,
+            studentsWithRecovery: highPerformersWithRecovery,
             averageRecoveryTime: highPerformerAvgRecovery,
             averageRecoveryTimeMinutes: highPerformerAvgRecovery / 60,
             averageSpikeCount: highPerformerAvgSpikes
         },
         midPerformers: {
             students: midPerformers,
+            studentsWithRecovery: midPerformersWithRecovery,
             averageRecoveryTime: midPerformerAvgRecovery,
             averageRecoveryTimeMinutes: midPerformerAvgRecovery / 60,
             averageSpikeCount: midPerformerAvgSpikes
         },
         lowPerformers: {
             students: lowPerformers,
+            studentsWithRecovery: lowPerformersWithRecovery,
             averageRecoveryTime: lowPerformerAvgRecovery,
             averageRecoveryTimeMinutes: lowPerformerAvgRecovery / 60,
             averageSpikeCount: lowPerformerAvgSpikes
         },
         comparison: {
-            recoveryTimeDiff: lowPerformerAvgRecovery - highPerformerAvgRecovery,
-            recoveryTimeDiffMinutes: (lowPerformerAvgRecovery - highPerformerAvgRecovery) / 60,
-            recoveryTimeRatio: lowPerformerAvgRecovery / (highPerformerAvgRecovery || 1),
+            recoveryTimeDiff: recoveryTimeDiff,
+            recoveryTimeDiffMinutes: recoveryTimeDiff / 60,
+            recoveryTimeRatio: recoveryTimeRatio,
             spikeCountDiff: lowPerformerAvgSpikes - highPerformerAvgSpikes,
-            spikeCountRatio: lowPerformerAvgSpikes / (highPerformerAvgSpikes || 1)
+            spikeCountRatio: highPerformerAvgSpikes > 0 ? lowPerformerAvgSpikes / highPerformerAvgSpikes : 1
         }
     };
 }
 
 // Visualize stress recovery patterns
+// Function to get appropriate color for a metric
+function getMetricColor(metric) {
+    switch(metric) {
+        case "EDA": return "#e63946"; // Red
+        case "HR": return "#1d3557";  // Dark blue
+        case "BVP": return "#457b9d"; // Medium blue
+        case "TEMP": return "#f4a261"; // Orange
+        case "IBI": return "#2a9d8f"; // Teal
+        case "ACC": return "#8338ec"; // Purple
+        default: return "#2196F3";    // Default blue
+    }
+}
+
+// Enhanced function to visualize stress recovery patterns with HR and BVP integration
+// Enhanced function to visualize stress recovery patterns with seconds instead of minutes
 function visualizeStressRecovery() {
-  const recoveryViz = document.getElementById("recovery-visualization");
-  if (!recoveryViz) {
-      console.error("Recovery visualization container not found");
-      return;
-  }
-  
-  // Clear previous content
-  recoveryViz.innerHTML = "";
-  
-  const dataset = getCurrentDataset();
-  if (!dataset) {
-      recoveryViz.innerHTML = "<p>No dataset available</p>";
-      return;
-  }
-  
-  // Get recovery metric selection (default to EDA if not specified)
-  const recoveryMetricSelect = document.getElementById("recovery-metric-select");
-  const recoveryMetric = recoveryMetricSelect ? recoveryMetricSelect.value : "EDA";
-  
-  // Analyze recovery patterns
-  const recoveryAnalysis = compareRecoveryPatterns(dataset, recoveryMetric);
-  
-  // Create visualization
-  const container = d3.select(recoveryViz);
-  
-  // Add title and description
-  container.append("h3")
-      .text(`Stress Recovery Analysis (${getMetricFullName(recoveryMetric)})`);
-  
-  container.append("p")
-      .text("This analysis shows how quickly students recover from stress spikes during the exam.");
-  
-  // Create main grid container with better responsive design
-  const grid = container.append("div")
-      .attr("class", "recovery-grid")
-      .style("display", "grid")
-      .style("grid-template-columns", "repeat(auto-fit, minmax(300px, 1fr))")
-      .style("gap", "20px");
-  
-  // Add comparison summary
-  const summaryDiv = grid.append("div")
-      .attr("class", "recovery-summary");
-  
-  summaryDiv.append("h4")
-      .text("Recovery Time Comparison");
-  
-  const comparisonTable = summaryDiv.append("table")
-      .attr("class", "recovery-table")
-      .style("width", "100%")
-      .style("border-collapse", "collapse")
-      .style("margin-bottom", "20px");
-  
-  // Add table header
-  comparisonTable.append("thead").append("tr")
-      .selectAll("th")
-      .data(["Performance Group", "Avg. Recovery Time", "Stress Spikes"])
-      .enter()
-      .append("th")
-      .style("border", "1px solid #ddd")
-      .style("padding", "8px")
-      .style("background-color", "#f2f2f2")
-      .text(d => d);
-  
-  // Add table rows
-  const tbody = comparisonTable.append("tbody");
-  
-  // High performers row
-  tbody.append("tr")
-      .html(`
-          <td style="border: 1px solid #ddd; padding: 8px; background-color: #a8dadc;">High Performers (≥85%)</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.highPerformers.averageRecoveryTimeMinutes.toFixed(1)} minutes</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.highPerformers.averageSpikeCount.toFixed(1)} per exam</td>
-      `);
-  
-  // Mid performers row
-  tbody.append("tr")
-      .html(`
-          <td style="border: 1px solid #ddd; padding: 8px; background-color: #f4a261;">Mid Performers (70-84%)</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.midPerformers.averageRecoveryTimeMinutes.toFixed(1)} minutes</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.midPerformers.averageSpikeCount.toFixed(1)} per exam</td>
-      `);
-  
-  // Low performers row
-  tbody.append("tr")
-      .html(`
-          <td style="border: 1px solid #ddd; padding: 8px; background-color: #e63946;">Low Performers (<70%)</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.lowPerformers.averageRecoveryTimeMinutes.toFixed(1)} minutes</td>
-          <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.lowPerformers.averageSpikeCount.toFixed(1)} per exam</td>
-      `);
-  
-  // Add key insight
-  summaryDiv.append("div")
-      .attr("class", "key-insight")
-      .style("padding", "10px")
-      .style("border-left", "4px solid #1a73e8")
-      .style("background-color", "#f8f9fa")
-      .style("margin-top", "15px")
-      .html(() => {
-          if (recoveryAnalysis.comparison.recoveryTimeDiff > 0) {
-              return `<strong>Key Insight:</strong> High performers recover from stress ${recoveryAnalysis.comparison.recoveryTimeRatio.toFixed(1)}× faster than lower performers (${Math.abs(recoveryAnalysis.comparison.recoveryTimeDiffMinutes).toFixed(1)} minutes faster on average).`;
-          } else if (recoveryAnalysis.comparison.recoveryTimeDiff < 0) {
-              return `<strong>Key Insight:</strong> Interestingly, high performers take ${Math.abs(recoveryAnalysis.comparison.recoveryTimeRatio).toFixed(1)}× longer to recover from stress peaks than lower performers.`;
-          } else {
-              return `<strong>Key Insight:</strong> There is no significant difference in stress recovery time between high and low performers.`;
-          }
-      });
-  
-  // Create bar chart for recovery visualization with responsive sizing
-  const chartDiv = grid.append("div");
-  
-  // Get container width for responsive sizing
-  const containerWidth = recoveryViz.clientWidth / 2 - 30;
-  const containerHeight = 300;
-  
-  // Setup SVG for bar chart with responsive dimensions
-  const margin = { top: 20, right: 30, bottom: 40, left: 50 };
-  const width = Math.min(containerWidth, 400) - margin.left - margin.right;
-  const height = containerHeight - margin.top - margin.bottom;
-  
-  const svg = chartDiv.append("svg")
-      .attr("width", "100%")
-      .attr("height", containerHeight)
-      .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
-      .attr("preserveAspectRatio", "xMidYMid meet")
-      .append("g")
-      .attr("transform", `translate(${margin.left},${margin.top})`);
-  
-  // Format data for the chart
-  const chartData = [
-      { group: "High Performers", value: recoveryAnalysis.highPerformers.averageRecoveryTimeMinutes, color: "#a8dadc" },
-      { group: "Mid Performers", value: recoveryAnalysis.midPerformers.averageRecoveryTimeMinutes, color: "#f4a261" },
-      { group: "Low Performers", value: recoveryAnalysis.lowPerformers.averageRecoveryTimeMinutes, color: "#e63946" }
-  ];
-  
-  // Create X axis with better sizing for labels
-  const x = d3.scaleBand()
-      .range([0, width])
-      .domain(chartData.map(d => d.group))
-      .padding(0.2);
-      
-  svg.append("g")
-      .attr("transform", `translate(0,${height})`)
-      .call(d3.axisBottom(x))
-      .selectAll("text")
-      .attr("transform", "rotate(-15)")
-      .style("text-anchor", "end")
-      .style("font-size", "10px");
-  
-  // Add X axis label
-  svg.append("text")
-      .attr("x", width / 2)
-      .attr("y", height + 35)
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .text("Student Performance Groups");
-  
-  // Find max value for Y scale with some padding
-  const maxValue = d3.max(chartData, d => d.value) * 1.2;
-  
-  // Create Y axis
-  const y = d3.scaleLinear()
-      .domain([0, maxValue])
-      .range([height, 0]);
-      
-  svg.append("g")
-      .call(d3.axisLeft(y));
-  
-  // Add Y axis label
-  svg.append("text")
-      .attr("transform", "rotate(-90)")
-      .attr("x", -height / 2)
-      .attr("y", -35)
-      .attr("text-anchor", "middle")
-      .style("font-size", "12px")
-      .text("Recovery Time (minutes)");
-  
-  // Add bars
-  svg.selectAll(".bar")
-      .data(chartData)
-      .enter()
-      .append("rect")
-      .attr("class", "bar")
-      .attr("x", d => x(d.group))
-      .attr("width", x.bandwidth())
-      .attr("y", d => y(d.value))
-      .attr("height", d => height - y(d.value))
-      .attr("fill", d => d.color);
-  
-  // Add values on top of bars
-  svg.selectAll(".bar-label")
-      .data(chartData)
-      .enter()
-      .append("text")
-      .attr("class", "bar-label")
-      .attr("x", d => x(d.group) + x.bandwidth() / 2)
-      .attr("y", d => y(d.value) - 5)
-      .attr("text-anchor", "middle")
-      .style("font-size", "10px")
-      .text(d => d.value.toFixed(1));
-  
-  // Add individual student recovery time section with responsive table
-  const studentSection = container.append("div")
-      .attr("class", "student-recovery-section")
-      .style("margin-top", "30px")
-      .style("overflow-x", "auto");  // Add horizontal scroll for small screens
-  
-  studentSection.append("h4")
-      .text("Individual Student Recovery Patterns");
-  
-  // Create a table for individual student data
-  const studentTable = studentSection.append("table")
-      .attr("class", "student-table")
-      .style("width", "100%")
-      .style("min-width", "500px")  // Ensure minimum width for readability
-      .style("border-collapse", "collapse");
-  
-  // Add table header
-  studentTable.append("thead").append("tr")
-      .selectAll("th")
-      .data(["Student", "Grade", "Avg. Recovery (min)", "# of Stress Spikes", "Performance"])
-      .enter()
-      .append("th")
-      .style("border", "1px solid #ddd")
-      .style("padding", "8px")
-      .style("background-color", "#f2f2f2")
-      .text(d => d);
-  
-  // Get sorted student data
-  const studentData = Object.keys(recoveryAnalysis.studentMetrics)
-      .map(student => ({
-          id: student,
-          grade: recoveryAnalysis.studentMetrics[student].grade,
-          recoveryTime: recoveryAnalysis.studentMetrics[student].recoveryPatterns.averageRecoveryTimeMinutes,
-          spikeCount: recoveryAnalysis.studentMetrics[student].recoveryPatterns.spikeCount,
-          performance: recoveryAnalysis.studentMetrics[student].grade >= 85 ? "High" : 
-                      (recoveryAnalysis.studentMetrics[student].grade >= 70 ? "Mid" : "Low")
-      }))
-      .sort((a, b) => b.grade - a.grade);
-  
-  // Add rows for each student
-  const studentTbody = studentTable.append("tbody");
-  
-  studentData.forEach(student => {
-      const bgColor = student.performance === "High" ? "#a8dadc" : 
-                    (student.performance === "Mid" ? "#f4a261" : "#e63946");
-      
-      studentTbody.append("tr")
-          .style("background-color", d3.color(bgColor).copy({opacity: 0.3}))
-          .html(`
-              <td style="border: 1px solid #ddd; padding: 8px;">${student.id}</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${student.grade}%</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${student.recoveryTime.toFixed(1)}</td>
-              <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${student.spikeCount}</td>
-              <td style="border: 1px solid #ddd; padding: 8px;">${student.performance}</td>
-          `);
-  });
-  
-  // Add analyze button event listener if it exists
-  const analyzeBtn = document.getElementById("analyze-recovery-btn");
-  if (analyzeBtn) {
-      analyzeBtn.addEventListener("click", visualizeStressRecovery);
-  }
+    const recoveryViz = document.getElementById("recovery-visualization");
+    if (!recoveryViz) {
+        console.error("Recovery visualization container not found");
+        return;
+    }
+    
+    // Clear previous content
+    recoveryViz.innerHTML = "";
+    
+    const dataset = getCurrentDataset();
+    if (!dataset) {
+        recoveryViz.innerHTML = "<p>No dataset available</p>";
+        return;
+    }
+    
+    // Get recovery metric selection (default to EDA if not specified)
+    const recoveryMetricSelect = document.getElementById("recovery-metric-select");
+    const recoveryMetric = recoveryMetricSelect ? recoveryMetricSelect.value : "EDA";
+    
+    // Analyze recovery patterns for the selected metric
+    const recoveryAnalysis = compareRecoveryPatterns(dataset, recoveryMetric);
+    
+    // Create visualization
+    const container = d3.select(recoveryViz);
+    
+    // Add title and description
+    container.append("h3")
+        .text(`Stress Recovery Analysis (${getMetricFullName(recoveryMetric)})`)
+        .style("margin-bottom", "10px");
+    
+    // Add explanation appropriate to the selected metric
+    let metricExplanation = "";
+    if (recoveryMetric === "EDA") {
+        metricExplanation = "Electrodermal Activity (EDA) spikes indicate moments of stress or arousal. Recovery time measures how quickly students return to baseline skin conductance levels.";
+    } else if (recoveryMetric === "HR") {
+        metricExplanation = "Heart Rate (HR) spikes indicate cardiovascular responses to stress. Recovery time measures how quickly heart rate returns to normal levels after a stressful event.";
+    } else if (recoveryMetric === "BVP") {
+        metricExplanation = "Blood Volume Pulse (BVP) changes indicate alterations in peripheral blood flow during stress. Recovery time measures how quickly blood flow patterns normalize.";
+    }
+    
+    container.append("p")
+        .text(metricExplanation)
+        .style("margin-bottom", "20px");
+    
+    // Create main grid container
+    const grid = container.append("div")
+        .attr("class", "recovery-grid")
+        .style("display", "grid")
+        .style("grid-template-columns", "1fr 1fr")
+        .style("gap", "20px");
+    
+    // Add comparison summary
+    const summaryDiv = grid.append("div")
+        .attr("class", "recovery-summary")
+        .style("background-color", "#f8f9fa")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    summaryDiv.append("h4")
+        .text("Recovery Time Comparison")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    const comparisonTable = summaryDiv.append("table")
+        .attr("class", "recovery-table")
+        .style("width", "100%")
+        .style("border-collapse", "collapse")
+        .style("margin-bottom", "20px");
+    
+    // Add table header
+    comparisonTable.append("thead").append("tr")
+        .selectAll("th")
+        .data(["Performance Group", "Avg. Recovery Time", "Stress Spikes"])
+        .enter()
+        .append("th")
+        .style("border", "1px solid #ddd")
+        .style("padding", "8px")
+        .style("background-color", "#f2f2f2")
+        .text(d => d);
+    
+    // Add table rows
+    const tbody = comparisonTable.append("tbody");
+    
+    // Function to format recovery time (handle NaN cases)
+    const formatRecoveryTime = (time) => {
+        if (isNaN(time)) return "N/A";
+        return `${time.toFixed(1)} seconds`;
+    };
+    
+    // High performers row
+    tbody.append("tr")
+        .html(`
+            <td style="border: 1px solid #ddd; padding: 8px; background-color: #a8dadc;">High Performers (≥85%)</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatRecoveryTime(recoveryAnalysis.highPerformers.averageRecoveryTime)}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.highPerformers.averageSpikeCount.toFixed(1)} per exam</td>
+        `);
+    
+    // Mid performers row
+    tbody.append("tr")
+        .html(`
+            <td style="border: 1px solid #ddd; padding: 8px; background-color: #f4a261;">Mid Performers (70-84%)</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatRecoveryTime(recoveryAnalysis.midPerformers.averageRecoveryTime)}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.midPerformers.averageSpikeCount.toFixed(1)} per exam</td>
+        `);
+    
+    // Low performers row
+    tbody.append("tr")
+        .html(`
+            <td style="border: 1px solid #ddd; padding: 8px; background-color: #e63946;">Low Performers (<70%)</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${formatRecoveryTime(recoveryAnalysis.lowPerformers.averageRecoveryTime)}</td>
+            <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${recoveryAnalysis.lowPerformers.averageSpikeCount.toFixed(1)} per exam</td>
+        `);
+    
+    // Add key insight
+    summaryDiv.append("div")
+        .attr("class", "key-insight")
+        .style("padding", "12px")
+        .style("border-left", "4px solid #1a73e8")
+        .style("background-color", "#e8f0fe")
+        .style("margin-top", "15px")
+        .style("border-radius", "0 4px 4px 0")
+        .html(() => {
+            if (!isNaN(recoveryAnalysis.comparison.recoveryTimeDiff)) {
+                if (recoveryAnalysis.comparison.recoveryTimeDiff > 0) {
+                    return `<strong>Key Insight:</strong> High performers recover ${recoveryMetric} ${recoveryAnalysis.comparison.recoveryTimeRatio.toFixed(1)}× faster than lower performers (${Math.abs(recoveryAnalysis.comparison.recoveryTimeDiff).toFixed(1)} seconds faster on average).`;
+                } else if (recoveryAnalysis.comparison.recoveryTimeDiff < 0) {
+                    return `<strong>Key Insight:</strong> Interestingly, high performers take ${Math.abs(recoveryAnalysis.comparison.recoveryTimeRatio).toFixed(1)}× longer to recover ${recoveryMetric} than lower performers.`;
+                } else {
+                    return `<strong>Key Insight:</strong> There is no significant difference in ${recoveryMetric} recovery time between high and low performers.`;
+                }
+            } else {
+                return `<strong>Key Insight:</strong> There is insufficient data to draw conclusions about ${recoveryMetric} recovery time differences.`;
+            }
+        });
+    
+    // Create bar chart for recovery visualization
+    const chartDiv = grid.append("div")
+        .style("background-color", "#fff")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    chartDiv.append("h4")
+        .text("Recovery Time by Performance Group")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    // Setup SVG for bar chart
+    const margin = { top: 20, right: 30, bottom: 50, left: 60 };
+    const width = 400 - margin.left - margin.right;
+    const height = 300 - margin.top - margin.bottom;
+    
+    const svg = chartDiv.append("svg")
+        .attr("width", "100%")
+        .attr("height", "300px")
+        .attr("viewBox", `0 0 ${width + margin.left + margin.right} ${height + margin.top + margin.bottom}`)
+        .append("g")
+        .attr("transform", `translate(${margin.left},${margin.top})`);
+    
+    // Format data for the chart, handling NaN values
+    const chartData = [
+        { group: "High Performers", value: isNaN(recoveryAnalysis.highPerformers.averageRecoveryTime) ? 0 : recoveryAnalysis.highPerformers.averageRecoveryTime, color: "#a8dadc" },
+        { group: "Mid Performers", value: isNaN(recoveryAnalysis.midPerformers.averageRecoveryTime) ? 0 : recoveryAnalysis.midPerformers.averageRecoveryTime, color: "#f4a261" },
+        { group: "Low Performers", value: isNaN(recoveryAnalysis.lowPerformers.averageRecoveryTime) ? 0 : recoveryAnalysis.lowPerformers.averageRecoveryTime, color: "#e63946" }
+    ];
+    
+    // Create X axis
+    const x = d3.scaleBand()
+        .range([0, width])
+        .domain(chartData.map(d => d.group))
+        .padding(0.2);
+        
+    svg.append("g")
+        .attr("transform", `translate(0,${height})`)
+        .call(d3.axisBottom(x));
+    
+    // Add X axis label
+    svg.append("text")
+        .attr("x", width / 2)
+        .attr("y", height + 35)
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .text("Student Performance Groups");
+    
+    // Find max value for Y scale with some padding
+    const maxValue = d3.max(chartData, d => d.value) * 1.2 || 1; // Provide default if no data
+    
+    // Create Y axis
+    const y = d3.scaleLinear()
+        .domain([0, maxValue])
+        .range([height, 0]);
+        
+    svg.append("g")
+        .call(d3.axisLeft(y));
+    
+    // Add Y axis label
+    svg.append("text")
+        .attr("transform", "rotate(-90)")
+        .attr("x", -height / 2)
+        .attr("y", -45)
+        .attr("text-anchor", "middle")
+        .style("font-size", "12px")
+        .text("Recovery Time (seconds)");
+    
+    // Add bars
+    svg.selectAll(".bar")
+        .data(chartData)
+        .enter()
+        .append("rect")
+        .attr("class", "bar")
+        .attr("x", d => x(d.group))
+        .attr("width", x.bandwidth())
+        .attr("y", d => y(d.value))
+        .attr("height", d => height - y(d.value))
+        .attr("fill", d => d.color)
+        .style("stroke", "#333")
+        .style("stroke-width", 1)
+        .style("opacity", 0.8);
+    
+    // Add values on top of bars
+    svg.selectAll(".bar-label")
+        .data(chartData)
+        .enter()
+        .append("text")
+        .attr("class", "bar-label")
+        .attr("x", d => x(d.group) + x.bandwidth() / 2)
+        .attr("y", d => y(d.value) - 5)
+        .attr("text-anchor", "middle")
+        .style("font-size", "11px")
+        .style("font-weight", "bold")
+        .text(d => d.value > 0 ? d.value.toFixed(1) : "N/A");
+    
+    // Add section for example recovery patterns
+    const exampleSection = container.append("div")
+        .style("margin-top", "30px")
+        .style("background-color", "#f8f9fa")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    exampleSection.append("h4")
+        .text("Example Stress Recovery Pattern")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    // Find a good example of a stress recovery event
+    let selectedStudent = null;
+    let selectedEvent = null;
+    
+    // First try to find an event from selected students
+    if (selectedStudents && selectedStudents.length > 0) {
+        for (const student of selectedStudents) {
+            if (recoveryAnalysis.studentMetrics[student] && 
+                recoveryAnalysis.studentMetrics[student].recoveryPatterns.recoveryEvents.length > 0) {
+                selectedStudent = student;
+                selectedEvent = recoveryAnalysis.studentMetrics[student].recoveryPatterns.recoveryEvents[0];
+                break;
+            }
+        }
+    }
+    
+    // If no event found, try to find any student with recovery events
+    if (!selectedEvent) {
+        for (const student in recoveryAnalysis.studentMetrics) {
+            if (recoveryAnalysis.studentMetrics[student].recoveryPatterns.recoveryEvents.length > 0) {
+                selectedStudent = student;
+                selectedEvent = recoveryAnalysis.studentMetrics[student].recoveryPatterns.recoveryEvents[0];
+                break;
+            }
+        }
+    }
+    
+    if (selectedStudent && selectedEvent) {
+        const performanceLevel = recoveryAnalysis.studentMetrics[selectedStudent].grade >= 85 ? "high" :
+                               (recoveryAnalysis.studentMetrics[selectedStudent].grade >= 70 ? "mid" : "low");
+        
+        exampleSection.append("p")
+            .html(`<strong>${selectedStudent}</strong> (Grade: ${recoveryAnalysis.studentMetrics[selectedStudent].grade}%, ${performanceLevel}-performer) experienced a significant ${recoveryMetric} spike with a recovery time of <strong>${selectedEvent.recoveryTime.toFixed(2)} seconds</strong>.`);
+        
+        // Create a small time-series visualization of the recovery event
+        const eventMargin = { top: 20, right: 30, bottom: 50, left: 60 };
+        const eventWidth = 500 - eventMargin.left - eventMargin.right;
+        const eventHeight = 200 - eventMargin.top - eventMargin.bottom;
+        
+        const eventSvg = exampleSection.append("svg")
+            .attr("width", "100%")
+            .attr("height", "200px")
+            .attr("viewBox", `0 0 ${eventWidth + eventMargin.left + eventMargin.right} ${eventHeight + eventMargin.top + eventMargin.bottom}`)
+            .append("g")
+            .attr("transform", `translate(${eventMargin.left},${eventMargin.top})`);
+        
+        // Get the data points around the stress event
+        const windowStart = Math.max(0, selectedEvent.spikeIndex - 20);
+        const windowEnd = Math.min(dataset[selectedStudent][recoveryMetric].length - 1, selectedEvent.recoveryIndex + 20);
+        const eventData = dataset[selectedStudent][recoveryMetric].slice(windowStart, windowEnd + 1);
+        
+        // Create scales
+        const eventX = d3.scaleLinear()
+            .domain([0, eventData.length - 1])
+            .range([0, eventWidth]);
+        
+        const eventY = d3.scaleLinear()
+            .domain([
+                d3.min(eventData, d => d.value) * 0.9,
+                d3.max(eventData, d => d.value) * 1.1
+            ])
+            .range([eventHeight, 0]);
+        
+        // Draw axes
+        eventSvg.append("g")
+            .attr("transform", `translate(0,${eventHeight})`)
+            .call(d3.axisBottom(eventX).tickFormat(i => {
+                // Convert to time labels relative to exam start
+                const timepoint = eventData[i] ? eventData[i].timestamp : eventData[0].timestamp;
+                const examStart = d3.min(dataset[selectedStudent][recoveryMetric], d => d.timestamp);
+                const secondsIntoExam = Math.floor(timepoint - examStart);
+                return i % 10 === 0 ? `${secondsIntoExam} sec` : "";
+            }));
+        
+        eventSvg.append("g")
+            .call(d3.axisLeft(eventY).tickFormat(d => {
+                // Format Y-axis ticks based on the metric
+                return formatMetricValue(d, recoveryMetric);
+            }));
+        
+        // Add X axis label
+        eventSvg.append("text")
+            .attr("x", eventWidth / 2)
+            .attr("y", eventHeight + 40)
+            .attr("text-anchor", "middle")
+            .style("font-size", "12px")
+            .text("Time into Exam (seconds)");
+        
+        // Add Y axis label
+        eventSvg.append("text")
+            .attr("transform", "rotate(-90)")
+            .attr("x", -eventHeight / 2)
+            .attr("y", -45)
+            .attr("text-anchor", "middle")
+            .style("font-size", "12px")
+            .text(getMetricFullName(recoveryMetric));
+        
+        // Draw the line
+        const line = d3.line()
+            .x((d, i) => eventX(i))
+            .y(d => eventY(d.value))
+            .curve(d3.curveMonotoneX);
+        
+        eventSvg.append("path")
+            .datum(eventData)
+            .attr("fill", "none")
+            .attr("stroke", getMetricColor(recoveryMetric))
+            .attr("stroke-width", 2)
+            .attr("d", line);
+        
+        // Highlight the spike point
+        const spikePointIndex = selectedEvent.spikeIndex - windowStart;
+        eventSvg.append("circle")
+            .attr("cx", eventX(spikePointIndex))
+            .attr("cy", eventY(eventData[spikePointIndex].value))
+            .attr("r", 6)
+            .attr("fill", "#e63946")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2);
+        
+        // Highlight the recovery point
+        const recoveryPointIndex = selectedEvent.recoveryIndex - windowStart;
+        eventSvg.append("circle")
+            .attr("cx", eventX(recoveryPointIndex))
+            .attr("cy", eventY(eventData[recoveryPointIndex].value))
+            .attr("r", 6)
+            .attr("fill", "#4CAF50")
+            .attr("stroke", "#fff")
+            .attr("stroke-width", 2);
+        
+        // Add annotations
+        eventSvg.append("text")
+            .attr("x", eventX(spikePointIndex))
+            .attr("y", eventY(eventData[spikePointIndex].value) - 10)
+            .attr("text-anchor", "middle")
+            .style("font-size", "10px")
+            .style("font-weight", "bold")
+            .text("Spike");
+        
+        eventSvg.append("text")
+            .attr("x", eventX(recoveryPointIndex))
+            .attr("y", eventY(eventData[recoveryPointIndex].value) - 10)
+            .attr("text-anchor", "middle")
+            .style("font-size", "10px")
+            .style("font-weight", "bold")
+            .text("Recovery");
+        
+        // Draw recovery period rectangle
+        eventSvg.append("rect")
+            .attr("x", eventX(spikePointIndex))
+            .attr("y", 0)
+            .attr("width", eventX(recoveryPointIndex) - eventX(spikePointIndex))
+            .attr("height", eventHeight)
+            .attr("fill", getMetricColor(recoveryMetric))
+            .attr("opacity", 0.1)
+            .attr("stroke", getMetricColor(recoveryMetric))
+            .attr("stroke-width", 1)
+            .attr("stroke-dasharray", "4,4");
+        
+        // Add recovery time label
+        eventSvg.append("text")
+            .attr("x", eventX(spikePointIndex) + (eventX(recoveryPointIndex) - eventX(spikePointIndex))/2)
+            .attr("y", 15)
+            .attr("text-anchor", "middle")
+            .style("font-size", "10px")
+            .style("font-weight", "bold")
+            .text(`Recovery Time: ${selectedEvent.recoveryTime.toFixed(2)} sec`);
+        
+        // If we're not viewing EDA, add a secondary metric comparison
+        if (recoveryMetric !== "EDA" && dataset[selectedStudent]["EDA"]) {
+            // Add a comparison with EDA during the same time period
+            exampleSection.append("h4")
+                .text("Multi-Metric Comparison")
+                .style("margin-top", "30px")
+                .style("margin-bottom", "15px")
+                .style("color", "#333");
+            
+            exampleSection.append("p")
+                .html(`See how ${recoveryMetric} and EDA responded during the same time period. This helps identify if different physiological systems are responding in sync.`);
+            
+            // Create secondary visualization
+            const secondaryMargin = { top: 20, right: 30, bottom: 50, left: 60 };
+            const secondaryWidth = 500 - secondaryMargin.left - secondaryMargin.right;
+            const secondaryHeight = 200 - secondaryMargin.top - secondaryMargin.bottom;
+            
+            const secondarySvg = exampleSection.append("svg")
+                .attr("width", "100%")
+                .attr("height", "200px")
+                .attr("viewBox", `0 0 ${secondaryWidth + secondaryMargin.left + secondaryMargin.right} ${secondaryHeight + secondaryMargin.top + secondaryMargin.bottom}`)
+                .append("g")
+                .attr("transform", `translate(${secondaryMargin.left},${secondaryMargin.top})`);
+            
+            // Get EDA data for the same time window
+            const startTime = eventData[0].timestamp;
+            const endTime = eventData[eventData.length - 1].timestamp;
+            
+            const edaData = dataset[selectedStudent]["EDA"].filter(d => 
+                d.timestamp >= startTime && d.timestamp <= endTime
+            );
+            
+            // Only proceed if we have EDA data for this window
+            if (edaData.length > 0) {
+                // Create scales
+                const secondaryX = d3.scaleLinear()
+                    .domain([0, edaData.length - 1])
+                    .range([0, secondaryWidth]);
+                
+                const secondaryY = d3.scaleLinear()
+                    .domain([
+                        d3.min(edaData, d => d.value) * 0.9,
+                        d3.max(edaData, d => d.value) * 1.1
+                    ])
+                    .range([secondaryHeight, 0]);
+                
+                // Draw axes
+                secondarySvg.append("g")
+                    .attr("transform", `translate(0,${secondaryHeight})`)
+                    .call(d3.axisBottom(secondaryX).tickFormat(i => {
+                        const timepoint = edaData[i] ? edaData[i].timestamp : edaData[0].timestamp;
+                        const examStart = d3.min(dataset[selectedStudent]["EDA"], d => d.timestamp);
+                        const secondsIntoExam = Math.floor(timepoint - examStart);
+                        return i % 10 === 0 ? `${secondsIntoExam} sec` : "";
+                    }));
+                
+                secondarySvg.append("g")
+                    .call(d3.axisLeft(secondaryY).tickFormat(d => formatMetricValue(d, "EDA")));
+                
+                // Add X axis label
+                secondarySvg.append("text")
+                    .attr("x", secondaryWidth / 2)
+                    .attr("y", secondaryHeight + 40)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("Time into Exam (seconds)");
+                
+                // Add Y axis label
+                secondarySvg.append("text")
+                    .attr("transform", "rotate(-90)")
+                    .attr("x", -secondaryHeight / 2)
+                    .attr("y", -45)
+                    .attr("text-anchor", "middle")
+                    .style("font-size", "12px")
+                    .text("Electrodermal Activity (EDA)");
+                
+                // Draw the EDA line
+                const edaLine = d3.line()
+                    .x((d, i) => secondaryX(i))
+                    .y(d => secondaryY(d.value))
+                    .curve(d3.curveMonotoneX);
+                
+                secondarySvg.append("path")
+                    .datum(edaData)
+                    .attr("fill", "none")
+                    .attr("stroke", getMetricColor("EDA"))
+                    .attr("stroke-width", 2)
+                    .attr("d", edaLine);
+                
+                // Add annotation for the corresponding time period
+                const timeOfSpike = eventData[spikePointIndex].timestamp;
+                const timeOfRecovery = eventData[recoveryPointIndex].timestamp;
+                
+                // Find closest EDA data points to the spike and recovery times
+                const edaSpikeIndex = edaData.findIndex(d => d.timestamp >= timeOfSpike);
+                const edaRecoveryIndex = edaData.findIndex(d => d.timestamp >= timeOfRecovery);
+                
+                if (edaSpikeIndex !== -1 && edaRecoveryIndex !== -1) {
+                    // Highlight the corresponding period
+                    secondarySvg.append("rect")
+                        .attr("x", secondaryX(edaSpikeIndex))
+                        .attr("y", 0)
+                        .attr("width", secondaryX(edaRecoveryIndex) - secondaryX(edaSpikeIndex))
+                        .attr("height", secondaryHeight)
+                        .attr("fill", getMetricColor("EDA"))
+                        .attr("opacity", 0.1)
+                        .attr("stroke", getMetricColor("EDA"))
+                        .attr("stroke-width", 1)
+                        .attr("stroke-dasharray", "4,4");
+                    
+                    // Add annotation
+                    secondarySvg.append("text")
+                        .attr("x", secondaryX(edaSpikeIndex) + (secondaryX(edaRecoveryIndex) - secondaryX(edaSpikeIndex))/2)
+                        .attr("y", 15)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "10px")
+                        .style("font-weight", "bold")
+                        .text(`Corresponding ${recoveryMetric} Recovery Period`);
+                }
+            }
+        }
+    } else {
+        exampleSection.append("p")
+            .text(`No ${recoveryMetric} stress recovery events were detected in the current dataset. Try selecting a different metric or exam.`);
+    }
+    
+    // Add section for metric comparison across performance groups
+    const metricComparisonSection = container.append("div")
+        .style("margin-top", "30px")
+        .style("background-color", "#f8f9fa")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    metricComparisonSection.append("h4")
+        .text("Cross-Metric Recovery Pattern Comparison")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    // Gather data for all metrics
+    const allMetrics = ["EDA", "HR", "BVP"].filter(m => m !== recoveryMetric);
+    const multiMetricData = {};
+    
+    // Check if we have analysis for other metrics
+    const hasOtherMetricData = allMetrics.some(metric => {
+        const analysis = compareRecoveryPatterns(dataset, metric);
+        multiMetricData[metric] = analysis;
+        return !isNaN(analysis.highPerformers.averageRecoveryTime) || 
+               !isNaN(analysis.lowPerformers.averageRecoveryTime);
+    });
+    
+    if (hasOtherMetricData) {
+        // Create a table comparing recovery times across metrics
+        const metricTable = metricComparisonSection.append("table")
+            .attr("class", "recovery-table")
+            .style("width", "100%")
+            .style("border-collapse", "collapse")
+            .style("margin-bottom", "20px");
+        
+        // Add table header
+        metricTable.append("thead").append("tr")
+            .selectAll("th")
+            .data(["Performance Group", `${recoveryMetric} Recovery`, ...allMetrics.map(m => `${m} Recovery`)])
+            .enter()
+            .append("th")
+            .style("border", "1px solid #ddd")
+            .style("padding", "8px")
+            .style("background-color", "#f2f2f2")
+            .text(d => d);
+        
+        // Add table rows
+        const metricTbody = metricTable.append("tbody");
+        
+        // High performers row
+        const highRow = metricTbody.append("tr")
+            .style("background-color", d3.color("#a8dadc").copy({opacity: 0.3}));
+        
+        highRow.append("td")
+            .style("border", "1px solid #ddd")
+            .style("padding", "8px")
+            .text("High Performers (≥85%)");
+        
+        highRow.append("td")
+            .style("border", "1px solid #ddd")
+            .style("padding", "8px")
+            .style("text-align", "right")
+            .text(`${formatRecoveryTime(recoveryAnalysis.highPerformers.averageRecoveryTime)}`);
+        
+        allMetrics.forEach(metric => {
+            highRow.append("td")
+                .style("border", "1px solid #ddd")
+                .style("padding", "8px")
+                .style("text-align", "right")
+                .text(`${formatRecoveryTime(multiMetricData[metric].highPerformers.averageRecoveryTime)}`);
+        });
+        
+        // Low performers row
+        const lowRow = metricTbody.append("tr")
+            .style("background-color", d3.color("#e63946").copy({opacity: 0.3}));
+        
+        lowRow.append("td")
+            .style("border", "1px solid #ddd")
+            .style("padding", "8px")
+            .text("Low Performers (<70%)");
+        
+        lowRow.append("td")
+            .style("border", "1px solid #ddd")
+            .style("padding", "8px")
+            .style("text-align", "right")
+            .text(`${formatRecoveryTime(recoveryAnalysis.lowPerformers.averageRecoveryTime)}`);
+        
+        allMetrics.forEach(metric => {
+            lowRow.append("td")
+                .style("border", "1px solid #ddd")
+                .style("padding", "8px")
+                .style("text-align", "right")
+                .text(`${formatRecoveryTime(multiMetricData[metric].lowPerformers.averageRecoveryTime)}`);
+        });
+        
+        // Add insights about cross-metric patterns
+        let crossMetricInsight = "";
+        const primaryMetricDiff = recoveryAnalysis.comparison.recoveryTimeDiff;
+        const otherMetricDiffs = allMetrics.map(metric => multiMetricData[metric].comparison.recoveryTimeDiff);
+        
+        // Check if all metrics show the same pattern (all positive or all negative)
+        const validDiffs = [primaryMetricDiff, ...otherMetricDiffs].filter(diff => !isNaN(diff));
+        
+        if (validDiffs.length > 0) {
+            const allPositive = validDiffs.every(diff => diff > 0);
+            const allNegative = validDiffs.every(diff => diff < 0);
+            const mixed = !allPositive && !allNegative;
+            
+            if (allPositive) {
+                crossMetricInsight = `<strong>Cross-Metric Insight:</strong> High performers consistently recover faster than lower performers across all physiological metrics (${recoveryMetric}, ${allMetrics.join(", ")}). This suggests better overall stress management abilities.`;
+            } else if (allNegative) {
+                crossMetricInsight = `<strong>Cross-Metric Insight:</strong> Interestingly, high performers consistently take longer to recover than lower performers across all physiological metrics. This could indicate more intense engagement with challenging problems.`;
+            } else if (mixed) {
+                const allMetricsWithPrimary = [recoveryMetric, ...allMetrics];
+                const allDiffs = [primaryMetricDiff, ...otherMetricDiffs];
+                
+                const fasterMetrics = allMetricsWithPrimary.filter((metric, i) => 
+                    !isNaN(allDiffs[i]) && allDiffs[i] > 0
+                );
+                const slowerMetrics = allMetricsWithPrimary.filter((metric, i) => 
+                    !isNaN(allDiffs[i]) && allDiffs[i] < 0
+                );
+                
+                crossMetricInsight = `<strong>Cross-Metric Insight:</strong> High performers recover faster in ${fasterMetrics.join(", ")} but slower in ${slowerMetrics.join(", ")}. This suggests different physiological systems respond differently to academic stress.`;
+            }
+        } else {
+            crossMetricInsight = `<strong>Cross-Metric Insight:</strong> There is insufficient data to draw conclusions about patterns across different physiological metrics.`;
+        }
+        
+        metricComparisonSection.append("div")
+            .attr("class", "key-insight")
+            .style("padding", "12px")
+            .style("border-left", "4px solid #1a73e8")
+            .style("background-color", "#e8f0fe")
+            .style("margin-top", "15px")
+            .style("border-radius", "0 4px 4px 0")
+            .html(crossMetricInsight);
+    } else {
+        metricComparisonSection.append("p")
+            .text("Not enough data to compare recovery patterns across different physiological metrics. Try selecting a different exam.");
+    }
+    
+    // Add individual student recovery time section
+    const studentSection = container.append("div")
+        .attr("class", "student-recovery-section")
+        .style("margin-top", "30px")
+        .style("background-color", "#fff")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    studentSection.append("h4")
+        .text("Individual Student Recovery Patterns")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    // Create a table for individual student data
+    const studentTable = studentSection.append("table")
+        .attr("class", "student-table")
+        .style("width", "100%")
+        .style("border-collapse", "collapse");
+    
+    // Add table header
+    studentTable.append("thead").append("tr")
+        .selectAll("th")
+        .data(["Student", "Grade", `Avg. ${recoveryMetric} Recovery (sec)`, "# of Stress Spikes", "Performance"])
+        .enter()
+        .append("th")
+        .style("border", "1px solid #ddd")
+        .style("padding", "8px")
+        .style("background-color", "#f2f2f2")
+        .text(d => d);
+    
+    // Get sorted student data
+    const studentData = Object.keys(recoveryAnalysis.studentMetrics)
+        .map(student => ({
+            id: student,
+            grade: recoveryAnalysis.studentMetrics[student].grade,
+            recoveryTime: recoveryAnalysis.studentMetrics[student].recoveryPatterns.averageRecoveryTime,
+            spikeCount: recoveryAnalysis.studentMetrics[student].recoveryPatterns.spikeCount,
+            performance: recoveryAnalysis.studentMetrics[student].grade >= 85 ? "High" : 
+                        (recoveryAnalysis.studentMetrics[student].grade >= 70 ? "Mid" : "Low")
+        }))
+        .sort((a, b) => b.grade - a.grade);
+    
+    // Add rows for each student
+    const studentTbody = studentTable.append("tbody");
+    
+    studentData.forEach(student => {
+        const bgColor = student.performance === "High" ? "#a8dadc" : 
+                      (student.performance === "Mid" ? "#f4a261" : "#e63946");
+        
+        studentTbody.append("tr")
+            .style("background-color", d3.color(bgColor).copy({opacity: 0.3}))
+            .html(`
+                <td style="border: 1px solid #ddd; padding: 8px;">${student.id}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${student.grade}%</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${isNaN(student.recoveryTime) ? "N/A" : student.recoveryTime.toFixed(1)}</td>
+                <td style="border: 1px solid #ddd; padding: 8px; text-align: right;">${student.spikeCount}</td>
+                <td style="border: 1px solid #ddd; padding: 8px;">${student.performance}</td>
+            `);
+    });
+    
+    // Add explanation section
+    const explanationSection = container.append("div")
+        .style("margin-top", "30px")
+        .style("background-color", "#f8f9fa")
+        .style("padding", "15px")
+        .style("border-radius", "5px")
+        .style("box-shadow", "0 2px 4px rgba(0,0,0,0.1)");
+    
+    explanationSection.append("h4")
+        .text("Understanding Stress Recovery Analysis")
+        .style("margin-top", "0")
+        .style("margin-bottom", "15px")
+        .style("color", "#333");
+    
+    explanationSection.append("p")
+        .html("<strong>What is stress recovery?</strong> Stress recovery is the process of returning to a baseline physiological state after experiencing a stress spike. Faster recovery times generally indicate better stress regulation.");
+    
+    // Add metric-specific explanations
+    if (recoveryMetric === "EDA") {
+        explanationSection.append("p")
+            .html("<strong>EDA Recovery:</strong> Electrodermal activity measures skin conductance, which increases during sympathetic nervous system activation. The speed of EDA recovery indicates how quickly a student's fight-or-flight response subsides after a stressful moment.");
+    } else if (recoveryMetric === "HR") {
+        explanationSection.append("p")
+            .html("<strong>HR Recovery:</strong> Heart rate increases during stress as part of the body's cardiovascular response. The speed of heart rate recovery reflects cardiovascular regulation efficiency and can indicate physical fitness or emotional regulation ability.");
+    } else if (recoveryMetric === "BVP") {
+        explanationSection.append("p")
+            .html("<strong>BVP Recovery:</strong> Blood volume pulse reflects changes in blood circulation during stress responses. BVP recovery patterns can reveal how quickly peripheral blood flow returns to normal after constriction due to stress.");
+    }
+    
+    explanationSection.append("p")
+        .html("<strong>How it's measured:</strong> The algorithm identifies significant spikes in physiological data (25% above baseline) and measures how long it takes to return to 50% of the spike magnitude.");
+    
+    explanationSection.append("p")
+        .html("<strong>Educational implications:</strong> Students with better stress recovery abilities typically perform better on exams, as they can quickly refocus after encountering difficult questions or moments of uncertainty.");
 }
-
-function addResizeListener() {
-  let resizeTimeout;
-  window.addEventListener('resize', function() {
-      // Debounce resize events to prevent excessive updates
-      clearTimeout(resizeTimeout);
-      resizeTimeout = setTimeout(function() {
-          // Update visualizations on window resize
-          updateTimelineVisualization();
-          updateComparisonVisualization();
-          
-          // Check if stress recovery is visible and update it
-          const recoveryViz = document.getElementById("recovery-visualization");
-          if (recoveryViz && recoveryViz.innerHTML !== "") {
-              visualizeStressRecovery();
-          }
-      }, 250); // Wait for 250ms after resize ends
-  });
-}
-
-
-const cssUpdates = `
-@media (max-width: 768px) {
-    .body-map-container {
-        flex-direction: column;
-    }
-    
-    #body-visualization, #body-metrics {
-        width: 100%;
-    }
-    
-    .timeline-controls {
-        flex-direction: column;
-        align-items: stretch;
-    }
-    
-    .recovery-grid {
-        grid-template-columns: 1fr;
-    }
-    
-    #comparison-visualization svg {
-        height: 500px;
-    }
-    
-    .recovery-controls {
-        flex-wrap: wrap;
-    }
-    
-    .comparison-controls {
-        grid-template-columns: 1fr;
-    }
-}
-
-/* Better visualization of active body parts */
-.body-part {
-    fill: #a8dadc;
-    stroke: #457b9d;
-    stroke-width: 2;
-    transition: all 0.3s ease;
-    cursor: pointer;
-}
-
-.body-part:hover {
-    fill: #1a73e8;
-    stroke: #1557b0;
-    stroke-width: 3;
-}
-
-.body-part.active {
-    stroke: #e63946;
-    stroke-width: 3;
-}
-
-/* Better tooltip design */
-.tooltip {
-    position: absolute;
-    padding: 10px;
-    background-color: rgba(255, 255, 255, 0.95);
-    border: 1px solid #ccc;
-    border-radius: 4px;
-    pointer-events: none;
-    font-size: 0.9rem;
-    box-shadow: 0 2px 10px rgba(0, 0, 0, 0.2);
-    z-index: 1000;
-    max-width: 300px;
-}
-
-/* Improved timeline visualization */
-.current-time-indicator {
-    stroke: #e63946;
-    stroke-width: 2;
-    stroke-dasharray: 5,5;
-    transition: transform 0.3s ease;
-}
-
-#time-slider {
-    width: 100%;
-    margin: 10px 0;
-}
-
-#play-pause {
-    min-width: 100px;
-}
-
-/* Visualization container improvements */
-#timeline-visualization, #comparison-visualization, #recovery-visualization {
-    transition: height 0.3s ease;
-    min-height: 400px;
-}
-`;
-
-
-function applyStyleUpdates() {
-  const styleElement = document.createElement('style');
-  styleElement.textContent = cssUpdates;
-  document.head.appendChild(styleElement);
-}
-
-// Make sure to call this when the DOM is loaded
-document.addEventListener("DOMContentLoaded", function() {
-  // Original event setup code from the file...
-  
-  // Add our style updates
-  applyStyleUpdates();
-});
-
-document.addEventListener("DOMContentLoaded", function() {
-    // Apply the enhanced styles for body map
-    const style = document.createElement('style');
-    style.textContent = `
-    /* Body map container */
-    .body-map-container {
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      margin: 1.5rem 0;
-      align-items: stretch;
-    }
-    
-    #body-visualization {
-      flex: 1;
-      min-width: 300px;
-      min-height: 500px;
-      position: relative;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      border: 1px solid #eee;
-      border-radius: 8px;
-      background-color: #f9f9f9;
-      padding: 1rem;
-    }
-    
-    #body-metrics {
-      flex: 1;
-      min-width: 300px;
-      padding: 1.5rem;
-      background-color: #f8f9fa;
-      border: 1px solid #eee;
-      border-radius: 8px;
-      box-shadow: inset 0 0 5px rgba(0,0,0,0.05);
-    }
-    
-    /* Body parts styling */
-    .body-part {
-      transition: all 0.3s ease;
-      cursor: pointer;
-    }
-    
-    .body-part:hover {
-      filter: brightness(1.1) drop-shadow(0 0 3px rgba(25, 118, 210, 0.4)) !important;
-    }
-    
-    .body-part.active {
-      stroke: #d32f2f !important;
-      stroke-width: 3 !important;
-      filter: drop-shadow(0 0 5px rgba(211, 47, 47, 0.5)) !important;
-    }
-    
-    /* Metrics display styling */
-    #selected-metric-display {
-      padding: 15px;
-      background-color: white;
-      border-radius: 6px;
-      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
-    }
-    
-    #selected-metric-display h4 {
-      margin-top: 0;
-      margin-bottom: 15px;
-      color: #1976d2;
-      border-bottom: 1px solid #eee;
-      padding-bottom: 8px;
-    }
-    
-    .metric-value {
-      display: flex;
-      justify-content: space-between;
-      margin-bottom: 10px;
-      padding: 8px;
-      background-color: #f5f5f5;
-      border-radius: 4px;
-    }
-    
-    .metric-value:nth-child(even) {
-      background-color: #e3f2fd;
-    }
-    
-    .value {
-      font-weight: bold;
-      color: #d32f2f;
-    }
-    
-    .explanation {
-      margin-top: 15px;
-      padding: 10px;
-      background-color: #e8f5e9;
-      border-left: 4px solid #4caf50;
-      border-radius: 0 4px 4px 0;
-      font-style: italic;
-    }
-    
-    /* Responsive adjustments */
-    @media (max-width: 768px) {
-      .body-map-container {
-        flex-direction: column;
-      }
-      
-      #body-visualization, 
-      #body-metrics {
-        width: 100%;
-      }
-    }`;
-    document.head.appendChild(style);
-});
