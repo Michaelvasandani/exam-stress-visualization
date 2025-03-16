@@ -6,67 +6,245 @@ let selectedMetrics = ["EDA", "HR"]; // Default selected metrics
 let isPlaying = false;
 let currentTimeIndex = 0;
 let animationFrameId = null;
+let loadAttempts = 0;
+const MAX_LOAD_ATTEMPTS = 3;
+
+// IMMEDIATE FIX: Create emergency sample data
+const createSampleData = function() {
+  console.log("CREATING EMERGENCY SAMPLE DATA");
+  
+  // Base pattern for data
+  const createMetricData = (baseValue, variability, timeMultiplier, length = 180) => {
+    return Array.from({length}, (_, i) => {
+      // Add some natural variation to make it look realistic
+      const sinComponent = Math.sin(i * 0.05) * variability * 0.5;
+      const randomComponent = (Math.random() - 0.5) * variability;
+      const trendComponent = Math.sin(i * timeMultiplier) * variability;
+      
+      return {
+        timestamp: i,
+        value: baseValue + sinComponent + randomComponent + trendComponent
+      };
+    });
+  };
+  
+  // Create sample student data
+  const generateStudentData = (studentId, stressLevel = 1) => {
+    return {
+      "EDA": createMetricData(5, 2 * stressLevel, 0.01),
+      "HR": createMetricData(70, 15 * stressLevel, 0.008),
+      "BVP": createMetricData(0, 1 * stressLevel, 0.1),
+      "TEMP": createMetricData(36.5, 0.5 * stressLevel, 0.003),
+      "IBI": createMetricData(0.8, 0.2 * stressLevel, 0.02),
+      "ACC": createMetricData(0, 0.5 * stressLevel, 0.05)
+    };
+  };
+  
+  // Create sample data for 5 students
+  const sampleData = {};
+  for (let i = 1; i <= 10; i++) {
+    // Vary stress levels across students
+    const stressLevel = 0.5 + (i % 3) * 0.5;
+    sampleData[`S${i}`] = generateStudentData(`S${i}`, stressLevel);
+  }
+  
+  // Return the generated data
+  return sampleData;
+};
+
+// Expose to window for access from other scripts
+window.createSampleData = createSampleData;
+
+// Main initialization function
+function initializeApp() {
+  console.log("Initializing visualization dashboard...");
+  
+  // IMMEDIATE FIX: Apply emergency data load
+  const emergencyDataLoad = function() {
+    console.warn("Using emergency data loading procedure");
+    const sampleData = createSampleData();
+    
+    // Set global data variables
+    midterm1Data = JSON.parse(JSON.stringify(sampleData));
+    midterm2Data = JSON.parse(JSON.stringify(sampleData));
+    finalData = JSON.parse(JSON.stringify(sampleData));
+    
+    // Initialize visualizations immediately
+    initializeVisualizations();
+    
+    // Show notice to user
+    const introSection = document.getElementById('introduction');
+    if (introSection) {
+      const noticeDiv = document.createElement('div');
+      noticeDiv.style.padding = '15px';
+      noticeDiv.style.backgroundColor = '#fff3e0';
+      noticeDiv.style.borderLeft = '4px solid #ff9800';
+      noticeDiv.style.margin = '20px 0';
+      
+      noticeDiv.innerHTML = `
+        <h3 style="color: #e65100; margin-top: 0;">Using Sample Data</h3>
+        <p>The dashboard is currently using sample data for demonstration purposes.</p>
+        <p>To use real data, please ensure your JSON files are correctly placed in the "json" folder.</p>
+      `;
+      
+      introSection.appendChild(noticeDiv);
+    }
+  };
+  
+  // Try to load the real data files with a timeout
+  let dataLoaded = false;
+  const dataLoadTimeout = setTimeout(() => {
+    if (!dataLoaded) {
+      console.warn("Data loading timeout - using emergency data");
+      emergencyDataLoad();
+    }
+  }, 2000); // Wait 2 seconds max
+  
+  // Load all three datasets from the "json" folder with retry logic
+  try {
+    Promise.all([
+      d3.json("json/Midterm_1.json").catch(e => null),
+      d3.json("json/Midterm_2.json").catch(e => null),
+      d3.json("json/Final.json").catch(e => null)
+    ]).then(function(data) {
+      // Clear timeout since we got a response
+      clearTimeout(dataLoadTimeout);
+      
+      // Check if any of the data is null or empty
+      if (data.some(d => !d || Object.keys(d).length === 0)) {
+        console.warn("Some data files could not be loaded or are empty");
+        emergencyDataLoad();
+        return;
+      }
+      
+      console.log("Real data loaded successfully");
+      dataLoaded = true;
+      midterm1Data = data[0];
+      midterm2Data = data[1];
+      finalData = data[2];
+      
+      // Initialize visualizations and set up event listeners
+      initializeVisualizations();
+      
+    }).catch(function(error) {
+      console.error("Error in Promise.all:", error);
+      emergencyDataLoad();
+    });
+  } catch (e) {
+    console.error("Critical error in data loading:", e);
+    emergencyDataLoad();
+  }
+}
+
+// Load data with retry mechanism (still keeping this as a fallback)
+function loadDataWithRetry() {
+  loadAttempts++;
+  console.log(`Attempt ${loadAttempts} to load data...`);
+  
+  Promise.all([
+    d3.json("json/Midterm_1.json").catch(error => {
+      console.error("Error loading Midterm_1.json:", error);
+      return null;
+    }),
+    d3.json("json/Midterm_2.json").catch(error => {
+      console.error("Error loading Midterm_2.json:", error);
+      return null;
+    }),
+    d3.json("json/Final.json").catch(error => {
+      console.error("Error loading Final.json:", error);
+      return null;
+    })
+  ]).then(function(data) {
+    // Check if any of the data is null (failed to load)
+    if (data.some(d => d === null)) {
+      handleDataLoadError();
+      return;
+    }
+    
+    console.log("Data loaded successfully");
+    midterm1Data = data[0];
+    midterm2Data = data[1];
+    finalData = data[2];
+    
+    // Initialize visualizations and set up event listeners
+    initializeVisualizations();
+    
+    console.log("Dashboard initialization complete");
+  }).catch(function(error) {
+    console.error("Error in Promise.all:", error);
+    handleDataLoadError();
+  });
+}
+
+// Handle data loading errors
+function handleDataLoadError() {
+  if (loadAttempts < MAX_LOAD_ATTEMPTS) {
+    console.log(`Retrying data load in 1 second... (Attempt ${loadAttempts}/${MAX_LOAD_ATTEMPTS})`);
+    setTimeout(loadDataWithRetry, 1000);
+  } else {
+    console.error("Failed to load data after multiple attempts");
+    document.getElementById("introduction").innerHTML += `
+      <div style="padding: 20px; background-color: #ffebee; border-left: 4px solid #f44336; margin: 20px 0;">
+        <h3 style="color: #d32f2f; margin-top: 0;">Error Loading Data</h3>
+        <p>There was a problem loading the visualization data. Please try:</p>
+        <ul>
+          <li>Refreshing the page</li>
+          <li>Checking if the JSON files exist in the /json folder</li>
+          <li>Ensuring the JSON files are properly formatted</li>
+        </ul>
+        <button onclick="initializeApp()" style="background-color: #d32f2f; color: white; border: none; padding: 8px 16px; border-radius: 4px; cursor: pointer;">
+          Retry Loading Data
+        </button>
+      </div>
+    `;
+  }
+}
+
+// Initialize all visualizations and set up event listeners
+function initializeVisualizations() {
+  // Initialize all visualizations
+  populateStudentCheckboxes();
+  initializeBodyMap();
+  initializeTimelineVisualization();
+  if (typeof enhanceTimelineVisualization === 'function') {
+    enhanceTimelineVisualization();
+  }
+  updateComparisonVisualization();
+  
+  // Set up event listeners
+  document.getElementById("exam-select").addEventListener("change", handleExamChange);
+  document.getElementById("play-pause").addEventListener("click", togglePlayPause);
+  document.getElementById("time-slider").addEventListener("input", handleTimeSliderChange);
+  
+  const analyzeBtn = document.getElementById("analyze-recovery-btn");
+  if (analyzeBtn) {
+    analyzeBtn.addEventListener("click", visualizeStressRecovery);
+  }
+  
+  // Set up metric checkboxes
+  document.querySelectorAll('input[name="metric"]').forEach(checkbox => {
+    checkbox.addEventListener("change", handleMetricChange);
+  });
+  
+  // Set up comparison controls
+  document.getElementById("x-axis-select").addEventListener("change", updateComparisonVisualization);
+  document.getElementById("y-axis-select").addEventListener("change", updateComparisonVisualization);
+  document.getElementById("bubble-size-select").addEventListener("change", updateComparisonVisualization);
+  document.getElementById("performance-select").addEventListener("change", updateComparisonVisualization);
+  
+  // Generate insights
+  populateInsights();
+  
+  // Add resize listener for responsive updates
+  if (typeof addResizeListener === 'function') {
+    addResizeListener();
+  }
+}
 
 // Initialize the application when the DOM is loaded
 document.addEventListener("DOMContentLoaded", function() {
-    // Load all three datasets from the "json" folder
-    Promise.all([
-        d3.json("json/Midterm_1.json"),
-        d3.json("json/Midterm_2.json"),
-        d3.json("json/Final.json")
-    ]).then(function(data) {
-        midterm1Data = data[0];
-        midterm2Data = data[1];
-        finalData = data[2];
-        
-        initializeApp();
-    }).catch(function(error) {
-        console.error("Error loading the data files:", error);
-        alert("Failed to load data files. Please check the console for details.");
-    });
-
-    // Setup event listeners for various UI controls
-    document.getElementById("exam-select").addEventListener("change", handleExamChange);
-    document.getElementById("play-pause").addEventListener("click", togglePlayPause);
-    document.getElementById("time-slider").addEventListener("input", handleTimeSliderChange);
-    document.getElementById("performance-select").addEventListener("change", updateComparisonVisualization);
-    document.getElementById("x-axis-select").addEventListener("change", updateComparisonVisualization);
-    document.getElementById("y-axis-select").addEventListener("change", updateComparisonVisualization);
-    document.getElementById("bubble-size-select").addEventListener("change", updateComparisonVisualization);
-    
-    // Setup metric checkbox event listeners
-    const metricCheckboxes = document.querySelectorAll("#metric-checkboxes input");
-    metricCheckboxes.forEach(checkbox => {
-        checkbox.addEventListener("change", handleMetricChange);
-    });
+  initializeApp();
 });
-
-// Initialize the application with the loaded data
-function initializeApp() {
-    populateStudentCheckboxes();
-    
-    // Replace the original body map with the enhanced 3D version
-    // initialize3DHumanModel(); // Use this for the most realistic 3D-like model
-    // OR use one of these alternatives:
-    initializeBodyMap(); // For the improved SVG version
-    // initialize3DBodyMap(); // For the hotspot button version
-    
-    initializeTimelineVisualization();
-    enhanceTimelineVisualization(); // Add this line here
-    
-    updateComparisonVisualization();
-    populateInsights();
-    
-    // Add recovery button handler
-    const analyzeBtn = document.getElementById("analyze-recovery-btn");
-    if (analyzeBtn) {
-        analyzeBtn.addEventListener("click", visualizeStressRecovery);
-    }
-    
-    // Add resize listener for responsive updates
-    addResizeListener();
-}
-
 
 // Get the currently selected dataset based on the exam choice
 function getCurrentDataset() {

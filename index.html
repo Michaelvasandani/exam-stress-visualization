@@ -5,9 +5,34 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>The Physiology of Test Anxiety</title>
     <link rel="stylesheet" href="style.css" />
+    <link rel="stylesheet" href="dashboard-style.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
   <body>
+    <div class="dashboard-nav">
+      <div class="logo">
+        <svg viewBox="0 0 24 24" width="28" height="28">
+          <!-- Duck SVG -->
+          <path d="M22,12c0,5.5-4.5,10-10,10S2,17.5,2,12S6.5,2,12,2c2.3,0,4.3,0.8,6,2.1l-0.8,0.8C15.7,3.7,13.9,3,12,3
+          c-5,0-9,4-9,9c0,0.8,0.1,1.6,0.3,2.3L12,8l3,3h7c0,5-4,9-9,9c-0.5,0-1-0.1-1.5-0.1C16.7,19.2,20,16,20,12c0-0.3-0.1-0.6-0.1-0.9
+          C19.4,11.7,19,12,18.5,12c-0.8,0-1.5-0.7-1.5-1.5c0-0.8,0.7-1.5,1.5-1.5c0.7,0,1.3,0.5,1.4,1.1C21,8.4,22,10.1,22,12z" fill="#333"/>
+          <!-- Duck eye -->
+          <circle cx="18.5" cy="10.5" r="0.5" fill="#000"/>
+        </svg>
+        <span>The Physiology of Test Anxiety</span>
+      </div>
+      <nav class="dashboard-menu">
+        <ul>
+          <li><a href="landing.html">Home</a></li>
+          <li><a href="#introduction" class="active">Introduction</a></li>
+          <li><a href="#body-map">Body Map</a></li>
+          <li><a href="#timeline">Timeline</a></li>
+          <li><a href="#comparison">Student Comparison</a></li>
+          <li><a href="#conclusion">Conclusion</a></li>
+        </ul>
+      </nav>
+    </div>
+
     <header>
       <h1>The Physiology of Test Anxiety</h1>
       <p>
@@ -15,16 +40,6 @@
         exams
       </p>
     </header>
-
-    <nav>
-      <ul>
-        <li><a href="#introduction">Introduction</a></li>
-        <li><a href="#body-map">Body Map</a></li>
-        <li><a href="#timeline">Timeline</a></li>
-        <li><a href="#comparison">Student Comparison</a></li>
-        <li><a href="#conclusion">Conclusion</a></li>
-      </ul>
-    </nav>
 
     <main>
       <section id="introduction">
@@ -75,8 +90,14 @@
             All midterm exams lasted 1.5 hours while the final exam was 3 hours
             long. All exams started at 9:00 AM.
           </p>
+          <p>
+            Follow <strong>Mina's</strong> journey through test anxiety on the <a href="landing.html">landing page</a>, or explore the real data with our visualizations below.
+          </p>
         </div>
+      </section>
 
+      <section id="body-map">
+        <h2>Interactive Body Map</h2>
         <div class="exam-selector">
           <h3>Select an Exam:</h3>
           <select id="exam-select">
@@ -92,10 +113,6 @@
             <!-- Student checkboxes will be added dynamically with JavaScript -->
           </div>
         </div>
-      </section>
-
-      <section id="body-map">
-        <h2>Interactive Body Map</h2>
         <p>
           Click on different parts of the body to explore physiological
           responses during exams
@@ -233,27 +250,6 @@
         </div>
       </section>
 
-      <section id="conclusion">
-        <h2>Understanding Your Own Test Anxiety</h2>
-        <p>
-          Based on the patterns we've observed, here are some strategies to
-          manage physiological responses during exams:
-        </p>
-        <ul>
-          <li>Controlled breathing techniques to regulate heart rate</li>
-          <li>Brief movement breaks to reduce muscle tension</li>
-          <li>Mindfulness practices to moderate electrodermal activity</li>
-          <li>
-            Temperature regulation strategies for optimal cognitive performance
-          </li>
-        </ul>
-
-        <p>
-          Remember that some level of physiological arousal can actually enhance
-          performance - the key is finding your optimal zone.
-        </p>
-      </section>
-      <!-- Add this section to your index.html file -->
       <section id="stress-recovery">
         <h2>Stress Recovery Patterns</h2>
         <p>
@@ -278,12 +274,38 @@
           <!-- Visualization will be inserted here -->
         </div>
       </section>
+
+      <section id="conclusion">
+        <h2>Understanding Your Own Test Anxiety</h2>
+        <p>
+          Based on the patterns we've observed, here are some strategies to
+          manage physiological responses during exams:
+        </p>
+        <ul>
+          <li>Controlled breathing techniques to regulate heart rate</li>
+          <li>Brief movement breaks to reduce muscle tension</li>
+          <li>Mindfulness practices to moderate electrodermal activity</li>
+          <li>
+            Temperature regulation strategies for optimal cognitive performance
+          </li>
+        </ul>
+
+        <p>
+          Remember that some level of physiological arousal can actually enhance
+          performance - the key is finding your optimal zone.
+        </p>
+        
+        <div style="margin-top: 2rem; text-align: center;">
+          <a href="landing.html" style="display: inline-block; padding: 0.8rem 1.5rem; background-color: var(--accent-color); color: white; text-decoration: none; border-radius: 4px; font-weight: 600; transition: all 0.3s ease;">Return to Mina's Journey</a>
+        </div>
+      </section>
     </main>
 
     <footer>
-      <p>Created for Data Visualization Final Project</p>
+      <p>Created for Data Visualization Final Project | The Physiology of Test Anxiety</p>
     </footer>
 
     <script src="script.js"></script>
+    <script src="dashboard-fix.js"></script>
   </body>
 </html>

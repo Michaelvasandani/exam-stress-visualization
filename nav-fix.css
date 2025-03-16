@@ -1,0 +1,42 @@
+/* Navigation fix to override blue background */
+nav {
+  background-color: transparent !important;
+}
+
+.landing-nav, 
+.landing-nav *,
+.landing-menu,
+.landing-menu ul,
+.landing-menu li,
+.landing-menu a:not(.enter-btn) {
+  background-color: rgba(0, 0, 0, 0.85) !important;
+}
+
+/* Fix for the navigation elements specifically */
+.landing-menu {
+  background-color: transparent !important;
+}
+
+.landing-menu ul {
+  background-color: transparent !important;
+}
+
+.landing-menu a {
+  color: white !important;
+}
+
+/* Fix mobile menu */
+@media (max-width: 768px) {
+  .landing-menu {
+    background-color: #121212 !important;
+  }
+}
+
+/* Keep the red button */
+.enter-btn {
+  background-color: var(--accent-color) !important;
+}
+
+.enter-btn:hover {
+  background-color: #e04545 !important;
+} 

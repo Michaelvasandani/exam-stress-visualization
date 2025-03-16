@@ -1,0 +1,412 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>The Physiology of Test Anxiety</title>
+  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="landing.css">
+  <link rel="stylesheet" href="nav-fix.css">
+  <script src="https://d3js.org/d3.v7.min.js"></script>
+  <script src="https://unpkg.com/scrollama"></script>
+  <style>
+    /* Immediate fix for blue navigation */
+    nav, .landing-nav, .landing-menu, .landing-menu ul, .landing-menu li, .landing-menu a:not(.enter-btn) {
+      background-color: rgba(0, 0, 0, 0.85) !important;
+    }
+    .landing-menu ul {
+      background: none !important;
+    }
+    .enter-btn {
+      background-color: #f05454 !important;
+    }
+  </style>
+</head>
+<body class="landing-page">
+  <div class="landing-nav">
+    <div class="logo">
+      <svg viewBox="0 0 24 24" width="28" height="28">
+        <!-- Duck SVG -->
+        <path d="M22,12c0,5.5-4.5,10-10,10S2,17.5,2,12S6.5,2,12,2c2.3,0,4.3,0.8,6,2.1l-0.8,0.8C15.7,3.7,13.9,3,12,3
+        c-5,0-9,4-9,9c0,0.8,0.1,1.6,0.3,2.3L12,8l3,3h7c0,5-4,9-9,9c-0.5,0-1-0.1-1.5-0.1C16.7,19.2,20,16,20,12c0-0.3-0.1-0.6-0.1-0.9
+        C19.4,11.7,19,12,18.5,12c-0.8,0-1.5-0.7-1.5-1.5c0-0.8,0.7-1.5,1.5-1.5c0.7,0,1.3,0.5,1.4,1.1C21,8.4,22,10.1,22,12z" fill="#fff"/>
+        <!-- Duck eye -->
+        <circle cx="18.5" cy="10.5" r="0.5" fill="#000"/>
+      </svg>
+      <span>The Physiology of Test Anxiety</span>
+    </div>
+    <div class="menu-toggle">
+      <div class="bar"></div>
+      <div class="bar"></div>
+      <div class="bar"></div>
+    </div>
+    <nav class="landing-menu" style="background-color: transparent !important;">
+      <ul style="background-color: transparent !important;">
+        <li><a href="#intro" style="background-color: transparent !important;">Introduction</a></li>
+        <li><a href="#before-exam" style="background-color: transparent !important;">Before the Exam</a></li>
+        <li><a href="#during-exam" style="background-color: transparent !important;">During the Exam</a></li>
+        <li><a href="#after-exam" style="background-color: transparent !important;">After the Exam</a></li>
+        <li><a href="#explore" style="background-color: transparent !important;">Explore Data</a></li>
+        <li><a href="index.html" class="enter-btn">Enter Dashboard</a></li>
+      </ul>
+    </nav>
+  </div>
+
+  <div class="scroll-container">
+    <!-- Hero Section -->
+    <section class="scroll-section hero" id="intro">
+      <div class="sticky-element">
+        <div class="hero-content">
+          <h1>The Physiology of<br><span class="accent">Test Anxiety</span></h1>
+          <p class="tagline">Follow Mina's journey through a high-stakes final exam</p>
+          <a href="#before-exam" class="cta-button">Begin the Journey</a>
+        </div>
+        <div class="scroll-indicator">
+          <span>Scroll to discover</span>
+          <svg width="24" height="24" viewBox="0 0 24 24">
+            <path d="M7.41,8.59L12,13.17l4.59-4.58L18,10l-6,6l-6-6L7.41,8.59z" fill="#fff"/>
+          </svg>
+        </div>
+      </div>
+    </section>
+
+    <!-- Before Exam Section -->
+    <section class="scroll-section" id="before-exam">
+      <div class="sticky-element">
+        <div class="content-block">
+          <div class="time-indicator">8:30 AM</div>
+          <h2 class="section-title">30 Minutes Before the Exam</h2>
+          <div class="narrative-content">
+            <div class="character">
+              <div class="character-image">
+                <svg width="200" height="300" viewBox="0 0 200 300">
+                  <!-- Improved stick figure with better proportions -->
+                  <!-- Head -->
+                  <circle cx="100" cy="50" r="20" fill="#333" stroke="#444" stroke-width="2"/>
+                  <!-- Body -->
+                  <line x1="100" y1="70" x2="100" y2="170" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Arms -->
+                  <line x1="100" y1="90" x2="70" y2="120" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <line x1="100" y1="90" x2="130" y2="120" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <!-- Legs -->
+                  <line x1="100" y1="170" x2="70" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <line x1="100" y1="170" x2="130" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Heart in anatomically correct position (left side of chest) -->
+                  <circle cx="88" cy="100" r="8" fill="#f05454" class="heart-beat pulse-animation">
+                    <animate attributeName="r" values="8;10;8" dur="0.6s" repeatCount="indefinite"/>
+                  </circle>
+                  <!-- Sweating indicator -->
+                  <line x1="120" y1="45" x2="130" y2="40" stroke="#ddd" stroke-width="2"/>
+                  <line x1="125" y1="55" x2="135" y2="53" stroke="#ddd" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="metrics-overlay">
+                <div class="metric">
+                  <div class="metric-label">Heart Rate</div>
+                  <div class="metric-value">95 BPM</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 75%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Skin Conductance</div>
+                  <div class="metric-value">High</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 70%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Body Temperature</div>
+                  <div class="metric-value">Elevated</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 65%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="narrative-text">
+              <p><span class="character-name">Mina</span> arrived at the exam hall early. Already, physiological signs of anxiety are apparent:</p>
+              <ul class="symptoms-list">
+                <li><strong>Elevated heart rate</strong>: 95 BPM (20% above resting)</li>
+                <li><strong>Increased sweating</strong>: EDA readings show rising skin conductance</li>
+                <li><strong>Shallow breathing</strong>: Respiratory rate of 18 breaths per minute</li>
+                <li><strong>Slight temperature increase</strong>: 0.5°C above baseline</li>
+              </ul>
+              <p class="quote">"My heart is racing. I keep checking my watch. Did I study enough? What if I blank out on a question?"</p>
+              <p>These symptoms reflect the body's sympathetic "fight-or-flight" response activating in anticipation of the exam.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- During Exam - Beginning -->
+    <section class="scroll-section" id="during-exam">
+      <div class="sticky-element">
+        <div class="content-block">
+          <div class="time-indicator">9:15 AM</div>
+          <h2 class="section-title">15 Minutes Into the Exam</h2>
+          <div class="narrative-content">
+            <div class="character">
+              <div class="character-image">
+                <svg width="200" height="300" viewBox="0 0 200 300">
+                  <!-- Improved stick figure with peak stress indicators -->
+                  <!-- Head -->
+                  <circle cx="100" cy="50" r="20" fill="#333" stroke="#444" stroke-width="2"/>
+                  <!-- Body -->
+                  <line x1="100" y1="70" x2="100" y2="170" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Arms -->
+                  <line x1="100" y1="90" x2="65" y2="125" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <line x1="100" y1="90" x2="135" y2="125" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <!-- Legs -->
+                  <line x1="100" y1="170" x2="70" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <line x1="100" y1="170" x2="130" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Heart beating fast - left side of chest -->
+                  <circle cx="88" cy="100" r="8" fill="#f05454" class="heart-beat pulse-animation-fast">
+                    <animate attributeName="r" values="8;11;8" dur="0.4s" repeatCount="indefinite"/>
+                  </circle>
+                  <!-- Heavy sweating indicators -->
+                  <line x1="122" y1="40" x2="135" y2="35" stroke="#ddd" stroke-width="2"/>
+                  <line x1="125" y1="50" x2="140" y2="48" stroke="#ddd" stroke-width="2"/>
+                  <line x1="127" y1="60" x2="142" y2="62" stroke="#ddd" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="metrics-overlay">
+                <div class="metric">
+                  <div class="metric-label">Heart Rate</div>
+                  <div class="metric-value">110 BPM</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 90%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Skin Conductance</div>
+                  <div class="metric-value">Very High</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 95%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Body Temperature</div>
+                  <div class="metric-value">High</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 85%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="narrative-text">
+              <p>As <span class="character-name">Mina</span> encounters the first difficult question, physiological stress peaks:</p>
+              <ul class="symptoms-list">
+                <li><strong>Heart rate spike</strong>: Jumping to 110 BPM</li>
+                <li><strong>EDA surge</strong>: Skin conductance reaches highest levels</li>
+                <li><strong>Muscle tension</strong>: Accelerometer data shows micro-movements in arms and shoulders</li>
+                <li><strong>Cortisol release</strong>: Stress hormone flooding the system</li>
+              </ul>
+              <p class="quote">"I can't remember the formula. My mind is blank. Everyone else seems to be writing so much..."</p>
+              <p>The body's full stress response is now engaged, potentially affecting cognitive performance and memory recall.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- During Exam - Middle -->
+    <section class="scroll-section" id="midpoint">
+      <div class="sticky-element">
+        <div class="content-block">
+          <div class="time-indicator">10:00 AM</div>
+          <h2 class="section-title">One Hour Into the Exam</h2>
+          <div class="narrative-content">
+            <div class="character">
+              <div class="character-image">
+                <svg width="200" height="300" viewBox="0 0 200 300">
+                  <!-- Improved stick figure with adaptation indicators -->
+                  <!-- Head -->
+                  <circle cx="100" cy="50" r="20" fill="#333" stroke="#444" stroke-width="2"/>
+                  <!-- Body -->
+                  <line x1="100" y1="70" x2="100" y2="170" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Arms -->
+                  <line x1="100" y1="90" x2="70" y2="120" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <line x1="100" y1="90" x2="130" y2="120" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <!-- Legs -->
+                  <line x1="100" y1="170" x2="70" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <line x1="100" y1="170" x2="130" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Heart moderating - left side of chest -->
+                  <circle cx="88" cy="100" r="8" fill="#f05454" class="heart-beat pulse-animation-medium">
+                    <animate attributeName="r" values="8;10;8" dur="0.7s" repeatCount="indefinite"/>
+                  </circle>
+                  <!-- Reduced sweating indicator -->
+                  <line x1="120" y1="45" x2="128" y2="42" stroke="#ddd" stroke-width="2"/>
+                </svg>
+              </div>
+              <div class="metrics-overlay">
+                <div class="metric">
+                  <div class="metric-label">Heart Rate</div>
+                  <div class="metric-value">90 BPM</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 70%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Skin Conductance</div>
+                  <div class="metric-value">Moderate</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 60%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Body Temperature</div>
+                  <div class="metric-value">Normalizing</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 55%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="narrative-text">
+              <p><span class="character-name">Mina</span> has found a rhythm and is beginning to adapt:</p>
+              <ul class="symptoms-list">
+                <li><strong>Heart rate adaptation</strong>: Decreased to 90 BPM</li>
+                <li><strong>EDA stabilization</strong>: Still elevated but no longer peaking</li>
+                <li><strong>Breathing regulation</strong>: More consistent respiratory pattern</li>
+                <li><strong>Reduced muscle tension</strong>: Body showing signs of adaptation</li>
+              </ul>
+              <p class="quote">"OK, I know this material. Take it one question at a time. Just focus on what's in front of me."</p>
+              <p>This adaptation phase shows the body's remarkable ability to regulate stress responses even in ongoing challenging situations.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- After Exam Section -->
+    <section class="scroll-section" id="after-exam">
+      <div class="sticky-element">
+        <div class="content-block">
+          <div class="time-indicator">12:05 PM</div>
+          <h2 class="section-title">Just After the Exam</h2>
+          <div class="narrative-content">
+            <div class="character">
+              <div class="character-image">
+                <svg width="200" height="300" viewBox="0 0 200 300">
+                  <!-- Improved stick figure with relief indicators -->
+                  <!-- Head -->
+                  <circle cx="100" cy="50" r="20" fill="#333" stroke="#444" stroke-width="2"/>
+                  <!-- Body - more relaxed posture -->
+                  <line x1="100" y1="70" x2="100" y2="170" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Arms - slightly more relaxed -->
+                  <line x1="100" y1="90" x2="75" y2="115" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <line x1="100" y1="90" x2="125" y2="115" stroke="#333" stroke-width="6" stroke-linecap="round"/>
+                  <!-- Legs - slight relaxed stance -->
+                  <line x1="100" y1="170" x2="80" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <line x1="100" y1="170" x2="120" y2="230" stroke="#333" stroke-width="8" stroke-linecap="round"/>
+                  <!-- Normal heart - left side of chest -->
+                  <circle cx="88" cy="100" r="8" fill="#f05454" class="heart-beat pulse-animation-normal">
+                    <animate attributeName="r" values="8;9;8" dur="0.9s" repeatCount="indefinite"/>
+                  </circle>
+                </svg>
+              </div>
+              <div class="metrics-overlay">
+                <div class="metric">
+                  <div class="metric-label">Heart Rate</div>
+                  <div class="metric-value">75 BPM</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 50%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Skin Conductance</div>
+                  <div class="metric-value">Baseline</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 40%"></div>
+                  </div>
+                </div>
+                <div class="metric">
+                  <div class="metric-label">Body Temperature</div>
+                  <div class="metric-value">Normal</div>
+                  <div class="metric-bar-container">
+                    <div class="metric-bar" style="width: 45%"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="narrative-text">
+              <p>With the exam complete, <span class="character-name">Mina's</span> body shows relief:</p>
+              <ul class="symptoms-list">
+                <li><strong>Heart rate normalization</strong>: Returning to baseline of 75 BPM</li>
+                <li><strong>EDA decrease</strong>: Sharp drop in skin conductance</li>
+                <li><strong>Temperature regulation</strong>: Body temperature stabilizing</li>
+                <li><strong>Parasympathetic activation</strong>: "Rest and digest" system engaging</li>
+              </ul>
+              <p class="quote">"It's over! I think I did OK on most parts. That wasn't as bad as I feared."</p>
+              <p>The parasympathetic nervous system now activates, countering the stress response and beginning recovery.</p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- Explore Data Section -->
+    <section class="scroll-section" id="explore">
+      <div class="sticky-element">
+        <div class="content-block">
+          <h2 class="section-title">Explore the Real Data</h2>
+          <p class="explore-intro">Mina's experience is based on real physiological data collected from students during exams. Dive deeper into the actual measurements and see how different students respond to test anxiety.</p>
+          <div class="viz-cards">
+            <div class="viz-card">
+              <div class="viz-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                  <path d="M12,2C6.48,2,2,6.48,2,12s4.48,10,10,10s10-4.48,10-10S17.52,2,12,2z M12,20c-4.41,0-8-3.59-8-8s3.59-8,8-8s8,3.59,8,8 S16.41,20,12,20z M16.89,7.11l-5.8,5.8l-3.35-3.35c-0.39-0.39-1.02-0.39-1.41,0c-0.39,0.39-0.39,1.02,0,1.41l4.11,4.11 c0.39,0.39,1.02,0.39,1.41,0l6.58-6.58c0.39-0.39,0.39-1.02,0-1.41C17.91,6.72,17.28,6.72,16.89,7.11z" fill="#fff"/>
+                </svg>
+              </div>
+              <h3>Body Map</h3>
+              <p>Explore how test anxiety affects different body systems during exams</p>
+              <a href="index.html#body-map" class="viz-link">View Visualization</a>
+            </div>
+
+            <div class="viz-card">
+              <div class="viz-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                  <path d="M3,13h2v-2H3V13z M3,17h2v-2H3V17z M3,9h2V7H3V9z M7,13h14v-2H7V13z M7,17h14v-2H7V17z M7,7v2h14V7H7z" fill="#fff"/>
+                </svg>
+              </div>
+              <h3>Timeline Explorer</h3>
+              <p>Track physiological changes throughout the exam duration</p>
+              <a href="index.html#timeline" class="viz-link">View Visualization</a>
+            </div>
+
+            <div class="viz-card">
+              <div class="viz-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                  <path d="M19,3H5C3.9,3,3,3.9,3,5v14c0,1.1,0.9,2,2,2h14c1.1,0,2-0.9,2-2V5C21,3.9,20.1,3,19,3z M9,17H7v-7h2V17z M13,17h-2V7h2V17 z M17,17h-2v-4h2V17z" fill="#fff"/>
+                </svg>
+              </div>
+              <h3>Student Comparison</h3>
+              <p>Compare physiological responses between students with different performance levels</p>
+              <a href="index.html#comparison" class="viz-link">View Visualization</a>
+            </div>
+
+            <div class="viz-card">
+              <div class="viz-icon">
+                <svg viewBox="0 0 24 24" width="48" height="48">
+                  <path d="M2,22l14-5L7,8L2,22z M12.35,16.18L5.3,18.7l2.52-7.05L12.35,16.18z M14.53,12.53l5.59-5.59c0.49-0.49,1.28-0.49,1.77,0 l0.59,0.59c0.49,0.49,0.49,1.28,0,1.77l-5.59,5.59L14.53,12.53z" fill="#fff"/>
+                </svg>
+              </div>
+              <h3>Stress Recovery</h3>
+              <p>Analyze how quickly students recover from physiological stress spikes during exams</p>
+              <a href="index.html#stress-recovery" class="viz-link">View Visualization</a>
+            </div>
+          </div>
+          
+          <div class="cta-container">
+            <a href="index.html" class="cta-button">Explore All Visualizations</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </div>
+
+  <script src="landing.js"></script>
+</body>
+</html> 
