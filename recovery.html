@@ -1,0 +1,73 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Stress Recovery Patterns - The Physiology of Test Anxiety</title>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>The Physiology of Test Anxiety</h1>
+      <p>
+        An explorable explanation of how our bodies respond during high-stakes
+        exams
+      </p>
+    </header>
+
+    <nav class="visualization-nav">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="body-map.html">Body Map</a></li>
+        <li><a href="timeline.html">Timeline</a></li>
+        <li><a href="comparison.html">Student Comparison</a></li>
+        <li><a href="recovery.html" class="active">Recovery Patterns</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="stress-recovery">
+        <h2>Stress Recovery Patterns</h2>
+        <p>
+          Analyze how quickly students recover from physiological stress spikes
+          during the exam.
+        </p>
+
+        <div class="controls-container">
+          <div class="exam-selector">
+            <h3>Select an Exam:</h3>
+            <select id="exam-select">
+              <option value="Midterm_1">Midterm 1</option>
+              <option value="Midterm_2">Midterm 2</option>
+              <option value="Final">Final</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="recovery-controls">
+          <label for="recovery-metric-select">Stress Indicator:</label>
+          <select id="recovery-metric-select">
+            <option value="EDA" selected>Electrodermal Activity (EDA)</option>
+            <option value="HR">Heart Rate (HR)</option>
+            <option value="BVP">Blood Volume Pulse (BVP)</option>
+          </select>
+
+          <button id="analyze-recovery-btn" class="btn">
+            Analyze Recovery Patterns
+          </button>
+        </div>
+
+        <div id="recovery-visualization" class="recovery-visualization">
+          <!-- Visualization will be inserted here -->
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created for Data Visualization Final Project</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
