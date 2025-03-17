@@ -6,6 +6,100 @@
     <title>Timeline Explorer - The Physiology of Test Anxiety</title>
     <link rel="stylesheet" href="style.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
+    <style>
+      /* Scrollytelling layout */
+      .scrolly-container {
+        display: flex;
+        width: 100%;
+        margin-top: 2rem;
+      }
+
+      .scrolly-text {
+        width: 30%;
+        padding-right: 2rem;
+        overflow-y: auto;
+        max-height: 100vh;
+      }
+
+      .scrolly-vis {
+        width: 70%;
+        position: sticky;
+        top: 0;
+        height: 100vh;
+        padding: 1rem;
+        display: flex;
+        flex-direction: column;
+      }
+
+      .narrative-section {
+        margin-bottom: 3rem;
+        padding: 1.5rem;
+        background-color: #f9f9f9;
+        border-left: 4px solid #2196f3;
+        border-radius: 0 8px 8px 0;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        position: relative;
+      }
+
+      .future-vis-placeholder {
+        position: absolute;
+        right: -220px;
+        top: 0;
+        width: 200px;
+        height: 120px;
+        background-color: #f0f0f0;
+        border: 2px dashed #ccc;
+        border-radius: 8px;
+        display: flex;
+        justify-content: center;
+        align-items: center;
+        font-size: 14px;
+        color: #666;
+        font-style: italic;
+        opacity: 0.7;
+      }
+
+      .controls-section {
+        background-color: white;
+        padding: 1rem;
+        border-radius: 8px;
+        box-shadow: 0 2px 5px rgba(0, 0, 0, 0.1);
+        margin-bottom: 1rem;
+      }
+
+      /* Compact controls for the right side */
+      .vis-controls {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 1rem;
+        margin-bottom: 1rem;
+      }
+
+      .vis-controls select,
+      .vis-controls .raw-values-toggle {
+        margin-bottom: 0.5rem;
+      }
+
+      .metric-selector {
+        max-width: 100%;
+      }
+
+      #metric-checkboxes {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.5rem;
+      }
+
+      #metric-checkboxes label {
+        flex: 0 0 calc(50% - 0.5rem);
+        margin: 0;
+      }
+
+      #timeline-visualization {
+        flex-grow: 1;
+        overflow: auto;
+      }
+    </style>
   </head>
   <body>
     <header>
@@ -33,89 +127,202 @@
           Explore how physiological metrics change throughout the exam duration
         </p>
 
-        <div class="compare-container">
-          <div>
-            <strong>Compare Students:</strong>
-            <select id="student-1-select" class="student-dropdown">
-              <option value="S1">S1</option>
-              <option value="S2">S2</option>
-              <option value="S3">S3</option>
-              <option value="S4">S4</option>
-              <option value="S5">S5</option>
-              <option value="S6">S6</option>
-              <option value="S7">S7</option>
-              <option value="S8">S8</option>
-              <option value="S9">S9</option>
-              <option value="S10">S10</option>
-            </select>
+        <!-- Scrollytelling layout with left text and right visualization -->
+        <div class="scrolly-container">
+          <!-- Left column for scrollable text content -->
+          <div class="scrolly-text">
+            <div class="narrative-section">
+              <h3>Introduction to Exam Stress</h3>
+              <p>
+                Exams create unique physiological responses in students. As you
+                explore the timeline visualization on the right, you'll see how
+                various metrics fluctuate during different phases of an exam.
+              </p>
+              <p>
+                Select different students, metrics, and exams to compare
+                patterns of stress responses and recovery.
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: Exam stress overview
+              </div>
+            </div>
+
+            <div class="narrative-section">
+              <h3>Electrodermal Activity (EDA)</h3>
+              <p>
+                EDA measures the electrical conductance of the skin, which
+                increases when sweat glands are activated. During stressful
+                situations, the sympathetic nervous system triggers increased
+                sweat production, making EDA a reliable indicator of stress and
+                anxiety.
+              </p>
+              <p>
+                Look for spikes in EDA that may correspond to difficult
+                questions or time pressure during the exam.
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: EDA patterns
+              </div>
+            </div>
+
+            <div class="narrative-section">
+              <h3>Heart Rate Variability</h3>
+              <p>
+                Heart rate (HR) and inter-beat interval (IBI) reveal how the
+                cardiovascular system responds to stress. Under stress, heart
+                rate typically increases, while the variability between beats
+                decreases.
+              </p>
+              <p>
+                Compare how different students' heart rates change during the
+                same exam. Some may show sharp increases at the beginning, while
+                others maintain relatively stable patterns.
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: Heart rate patterns
+              </div>
+            </div>
+
+            <div class="narrative-section">
+              <h3>Student Performance Correlation</h3>
+              <p>
+                Research suggests that students with better stress recovery
+                patterns often perform better on exams. Those who can quickly
+                return to baseline after encountering difficult questions may
+                have an advantage.
+              </p>
+              <p>
+                Compare high-performing students (S1, S2) with those who scored
+                lower (S9, S10) to observe differences in their physiological
+                responses.
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: Performance correlation
+              </div>
+            </div>
+
+            <div class="narrative-section">
+              <h3>Temperature and Movement</h3>
+              <p>
+                Skin temperature often decreases during stress as blood vessels
+                constrict. Movement (ACC) can indicate fidgeting or
+                restlessness, common behaviors during stressful situations.
+              </p>
+              <p>
+                Check if there are correlations between movement patterns and
+                other stress indicators like EDA or heart rate.
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: Temperature & movement
+              </div>
+            </div>
+
+            <div class="narrative-section">
+              <h3>Add Your Own Analysis</h3>
+              <p>
+                This space is reserved for your observations. As you interact
+                with the visualization, note patterns, correlations, or
+                interesting anomalies you discover.
+              </p>
+              <p>
+                What happens at the beginning versus the end of exams? Do
+                different metrics reveal different aspects of the stress
+                response?
+              </p>
+              <div class="future-vis-placeholder">
+                Future visualization: Custom analysis
+              </div>
+            </div>
           </div>
 
-          <div>
-            <strong>vs</strong>
-            <select id="student-2-select" class="student-dropdown">
-              <option value="none">None (Single Student)</option>
-              <option value="S1">S1</option>
-              <option value="S2">S2</option>
-              <option value="S3">S3</option>
-              <option value="S4">S4</option>
-              <option value="S5">S5</option>
-              <option value="S6">S6</option>
-              <option value="S7">S7</option>
-              <option value="S8">S8</option>
-              <option value="S9">S9</option>  
-              <option value="S10">S10</option>
-            </select>
-          </div>
+          <!-- Right column for fixed visualization -->
+          <div class="scrolly-vis">
+            <!-- Compact controls for the visualization -->
+            <div class="controls-section">
+              <div class="vis-controls">
+                <div>
+                  <strong>Student:</strong>
+                  <select id="student-1-select" class="student-dropdown">
+                    <option value="S1">S1</option>
+                    <option value="S2">S2</option>
+                    <option value="S3">S3</option>
+                    <option value="S4">S4</option>
+                    <option value="S5">S5</option>
+                    <option value="S6">S6</option>
+                    <option value="S7">S7</option>
+                    <option value="S8">S8</option>
+                    <option value="S9">S9</option>
+                    <option value="S10">S10</option>
+                  </select>
+                </div>
 
-          <div class="raw-values-toggle">
-            <input type="checkbox" id="raw-values-toggle" checked />
-            <label for="raw-values-toggle">Display Raw Values</label>
+                <div>
+                  <strong>Compare with:</strong>
+                  <select id="student-2-select" class="student-dropdown">
+                    <option value="none">None</option>
+                    <option value="S1">S1</option>
+                    <option value="S2">S2</option>
+                    <option value="S3">S3</option>
+                    <option value="S4">S4</option>
+                    <option value="S5">S5</option>
+                    <option value="S6">S6</option>
+                    <option value="S7">S7</option>
+                    <option value="S8">S8</option>
+                    <option value="S9">S9</option>
+                    <option value="S10">S10</option>
+                  </select>
+                </div>
+
+                <div>
+                  <strong>Exam:</strong>
+                  <select id="exam-select">
+                    <option value="Midterm_1">Midterm 1</option>
+                    <option value="Midterm_2">Midterm 2</option>
+                    <option value="Final">Final</option>
+                  </select>
+                </div>
+
+                <div class="raw-values-toggle">
+                  <input type="checkbox" id="raw-values-toggle" checked />
+                  <label for="raw-values-toggle">Display Raw Values</label>
+                </div>
+              </div>
+
+              <div class="metric-selector">
+                <h3>Metrics to Display:</h3>
+                <div id="metric-checkboxes">
+                  <label>
+                    <input type="checkbox" name="metric" value="EDA" />
+                    Electrodermal Activity (EDA)
+                  </label>
+                  <label>
+                    <input type="checkbox" name="metric" value="HR" />
+                    Heart Rate (HR)
+                  </label>
+                  <label>
+                    <input type="checkbox" name="metric" value="BVP" />
+                    Blood Volume Pulse (BVP)
+                  </label>
+                  <label>
+                    <input type="checkbox" name="metric" value="TEMP" />
+                    Skin Temperature (TEMP)
+                  </label>
+                  <label>
+                    <input type="checkbox" name="metric" value="IBI" checked />
+                    Inter-Beat Interval (IBI)
+                  </label>
+                  <label>
+                    <input type="checkbox" name="metric" value="ACC" />
+                    Movement (ACC)
+                  </label>
+                </div>
+              </div>
+            </div>
+
+            <!-- The original visualization will be placed here by script.js -->
+            <div id="timeline-visualization"></div>
           </div>
         </div>
-
-        <div class="controls-container">
-          <div class="exam-selector">
-            <h3>Select an Exam:</h3>
-            <select id="exam-select">
-              <option value="Midterm_1">Midterm 1</option>
-              <option value="Midterm_2">Midterm 2</option>
-              <option value="Final">Final</option>
-            </select>
-          </div>
-        </div>
-
-        <div class="metric-selector">
-          <h3>Select Metrics to Display:</h3>
-          <div id="metric-checkboxes">
-            <label>
-              <input type="checkbox" name="metric" value="EDA" />
-              Electrodermal Activity (EDA)
-            </label>
-            <label>
-              <input type="checkbox" name="metric" value="HR" />
-              Heart Rate (HR)
-            </label>
-            <label>
-              <input type="checkbox" name="metric" value="BVP" />
-              Blood Volume Pulse (BVP)
-            </label>
-            <label>
-              <input type="checkbox" name="metric" value="TEMP" />
-              Skin Temperature (TEMP)
-            </label>
-            <label>
-              <input type="checkbox" name="metric" value="IBI" checked />
-              Inter-Beat Interval (IBI)
-            </label>
-            <label>
-              <input type="checkbox" name="metric" value="ACC" />
-              Movement (ACC)
-            </label>
-          </div>
-        </div>
-
-        <!-- The original visualization will be placed here by script.js -->
-        <div id="timeline-visualization"></div>
       </section>
     </main>
 

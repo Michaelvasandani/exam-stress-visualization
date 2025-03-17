@@ -4690,3 +4690,457 @@ function visualizeStressRecovery() {
       "<strong>Educational implications:</strong> Students with better stress recovery abilities typically perform better on exams, as they can quickly refocus after encountering difficult questions or moments of uncertainty."
     );
 }
+
+// Homepage/index.html specific functionality
+if (currentPage === "landing" || currentPage === "") {
+  // Enhanced scrollytelling script for landing page
+  const sections = document.querySelectorAll(".scroll-section");
+  const header = document.querySelector(".transparent-header");
+
+  // Set initial states
+  sections.forEach((section, index) => {
+    if (index === 0) {
+      section.classList.add("active");
+    }
+  });
+
+  // Helper function to check if element is in viewport
+  function isInViewport(element, offset = 0.8) {
+    const rect = element.getBoundingClientRect();
+    return rect.top <= window.innerHeight * offset && rect.bottom >= 0;
+  }
+
+  // Helper function to calculate scroll progress
+  function getScrollProgress(element) {
+    const rect = element.getBoundingClientRect();
+    const windowHeight = window.innerHeight;
+
+    // Calculate how far the element is through the viewport
+    let progress = 1 - (rect.top + rect.height) / (windowHeight + rect.height);
+
+    // Clamp between 0 and 1
+    return Math.min(Math.max(progress, 0), 1);
+  }
+
+  // Update scroll position for parallax and scroll-based animations
+  function updateOnScroll() {
+    sections.forEach((section) => {
+      // Add active class when section is in viewport
+      if (isInViewport(section)) {
+        section.classList.add("active");
+
+        // Get scroll progress for this section
+        const progress = getScrollProgress(section);
+
+        // Apply parallax effect to visual elements based on scroll progress
+        const visual = section.querySelector(".visual-container");
+        if (visual) {
+          visual.style.transform = `translateY(${progress * -30}px)`;
+        }
+      } else {
+        // Optional: remove active class when section leaves viewport
+        // section.classList.remove("active");
+      }
+    });
+
+    // Make header more transparent on scroll
+    const scrollY = window.scrollY;
+    if (scrollY > 100) {
+      header.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
+    } else {
+      header.style.backgroundColor =
+        "rgba(255, 255, 255, " + (0.6 + scrollY / 250) + ")";
+    }
+  }
+
+  // Function to reset the metrics grid to its original state
+  function resetMetricsGrid() {
+    const metricsGrid = document.querySelector(".metrics-grid");
+    if (metricsGrid) {
+      metricsGrid.classList.remove("with-chart");
+    }
+  }
+
+  // Emily's metrics visualization code for the landing page modal
+  let landingPageMidterm1Data, landingPageMidterm2Data, landingPageFinalData;
+  let currentMetric = "HR";
+  let currentExam = "midterm1";
+
+  // Load data for the Emily metrics chart
+  Promise.all([
+    d3.json("json/Midterm_1.json").catch((error) => {
+      console.error("Error loading midterm1 data:", error);
+      return null;
+    }),
+    d3.json("json/Midterm_2.json").catch((error) => {
+      console.error("Error loading midterm2 data:", error);
+      return null;
+    }),
+    d3.json("json/Final.json").catch((error) => {
+      console.error("Error loading final data:", error);
+      return null;
+    }),
+  ]).then((data) => {
+    [landingPageMidterm1Data, landingPageMidterm2Data, landingPageFinalData] =
+      data;
+    if (
+      landingPageMidterm1Data &&
+      landingPageMidterm2Data &&
+      landingPageFinalData
+    ) {
+      console.log(
+        "All data loaded successfully for Emily's metrics visualization"
+      );
+
+      // Check if we have the data for Emily (S1)
+      if (landingPageMidterm1Data.S1) {
+        console.log(
+          "Student S1 (Emily) metrics available:",
+          Object.keys(landingPageMidterm1Data.S1).join(", ")
+        );
+      } else {
+        console.warn("Student S1 (Emily) not found in data");
+      }
+    } else {
+      console.warn("Some data failed to load for Emily's metrics:", {
+        midterm1: !!landingPageMidterm1Data,
+        midterm2: !!landingPageMidterm2Data,
+        final: !!landingPageFinalData,
+      });
+    }
+  });
+
+  // Helper to get the current dataset based on exam selection for Emily's metrics
+  function getCurrentEmilyDataset() {
+    if (currentExam === "midterm1") return landingPageMidterm1Data;
+    if (currentExam === "midterm2") return landingPageMidterm2Data;
+    if (currentExam === "final") return landingPageFinalData;
+    return null;
+  }
+
+  // Helper to get the real metric data for a student (Emily)
+  function getEmilyMetricData(metric) {
+    const dataset = getCurrentEmilyDataset();
+    if (!dataset) {
+      console.warn("No dataset available for the selected exam:", currentExam);
+      return null;
+    }
+
+    // Emily is student S1 in the dataset
+    const studentId = "S1";
+    const studentData = dataset[studentId];
+
+    if (!studentData) {
+      console.warn("No data found for student S1 (Emily)");
+      return null;
+    }
+
+    if (!studentData[metric]) {
+      console.warn(`No ${metric} data found for student S1 (Emily)`);
+      return null;
+    }
+
+    console.log(
+      `Processing ${studentData[metric].length} data points for ${metric}`
+    );
+
+    // Process the data - the timeline data format is different than what we need
+    // Each data point has a timestamp and value
+    const processedData = studentData[metric].map((point, index) => {
+      return {
+        time:
+          (index * (currentExam === "final" ? 180 : 90)) /
+          studentData[metric].length,
+        value: point.value,
+      };
+    });
+
+    // Filter out any potential null or undefined values
+    const cleanData = processedData.filter(
+      (d) => d.value !== null && d.value !== undefined
+    );
+
+    console.log(
+      `Processed ${cleanData.length} valid data points for ${metric}`
+    );
+
+    return cleanData;
+  }
+
+  // Chart rendering function for Emily's metrics
+  function renderEmilyChart(metric, exam) {
+    const chartContainer = document.getElementById("lineChart");
+    chartContainer.innerHTML = "";
+
+    // Try to get real data first
+    let data = getEmilyMetricData(metric);
+
+    // Continue only if we have actual data
+    if (!data || data.length === 0) {
+      console.error("No valid data found for", metric, "in", exam);
+
+      // Display error message in the chart
+      chartContainer.innerHTML = `
+        <div style="text-align: center; padding: 50px; color: #666;">
+          <h3>Data Unavailable</h3>
+          <p>Unable to load valid data for ${metric} in ${exam}.</p>
+          <p>Please try another metric or exam.</p>
+        </div>
+      `;
+      return;
+    }
+
+    console.log("Successfully loaded real data for", metric, "in", exam);
+
+    const margin = { top: 30, right: 40, bottom: 60, left: 70 };
+    const width = chartContainer.clientWidth - margin.left - margin.right;
+    const height = 450 - margin.top - margin.bottom;
+
+    // Create SVG
+    const svg = d3
+      .select("#lineChart")
+      .append("svg")
+      .attr("width", width + margin.left + margin.right)
+      .attr("height", height + margin.top + margin.bottom)
+      .append("g")
+      .attr("transform", `translate(${margin.left},${margin.top})`);
+
+    // Set scales
+    const x = d3
+      .scaleLinear()
+      .domain([0, d3.max(data, (d) => d.time)])
+      .range([0, width]);
+
+    const y = d3
+      .scaleLinear()
+      .domain([
+        d3.min(data, (d) => d.value) * 0.9, // Increase space at bottom
+        d3.max(data, (d) => d.value) * 1.1, // Increase space at top
+      ])
+      .range([height, 0]);
+
+    // Create axes with more ticks for better readability
+    svg
+      .append("g")
+      .attr("transform", `translate(0,${height})`)
+      .call(
+        d3
+          .axisBottom(x)
+          .ticks(10) // Increase number of ticks
+          .tickFormat((d) => {
+            if (d === 0) return "0";
+            return `${Math.round(d)}m`;
+          })
+      )
+      .selectAll("text")
+      .attr("font-size", "12px");
+
+    svg
+      .append("g")
+      .call(d3.axisLeft(y).ticks(10)) // Increase number of ticks
+      .selectAll("text")
+      .attr("font-size", "12px");
+
+    // Add axes labels with larger font
+    svg
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("x", width / 2)
+      .attr("y", height + margin.bottom - 20)
+      .attr("font-size", "14px")
+      .attr("font-weight", "bold")
+      .text("Time (minutes)");
+
+    const metricUnits = {
+      HR: "BPM",
+      EDA: "μS",
+      BVP: "a.u.",
+      TEMP: "°C",
+    };
+
+    svg
+      .append("text")
+      .attr("text-anchor", "middle")
+      .attr("transform", "rotate(-90)")
+      .attr("y", -margin.left + 25)
+      .attr("x", -height / 2)
+      .attr("font-size", "14px")
+      .attr("font-weight", "bold")
+      .text(metricUnits[metric]);
+
+    // Add grid lines for better readability
+    svg
+      .append("g")
+      .attr("class", "grid")
+      .attr("opacity", 0.1)
+      .call(d3.axisLeft(y).ticks(10).tickSize(-width).tickFormat(""));
+
+    // Add the line with increased stroke width
+    const line = d3
+      .line()
+      .x((d) => x(d.time))
+      .y((d) => y(d.value))
+      .curve(d3.curveCatmullRom);
+
+    // Add path
+    svg
+      .append("path")
+      .datum(data)
+      .attr("fill", "none")
+      .attr("stroke", getEmilyMetricColor(metric))
+      .attr("stroke-width", 3.5) // Increased for better visibility
+      .attr("d", line);
+
+    // Define key events based on exam duration
+    const duration = exam === "final" ? 180 : 90; // 3 hours for final, 1.5 hours for midterms
+    const keyEvents = [
+      { time: 0, label: "Start" },
+      { time: duration * 0.3, label: "Difficult Q" },
+      { time: duration * 0.5, label: "Halfway" },
+      { time: duration * 0.8, label: "Time Warning" },
+      { time: duration, label: "End" },
+    ];
+
+    // Add dots and labels for key events with increased size
+    keyEvents.forEach((event) => {
+      const closestDataPoint = data.reduce((prev, curr) => {
+        return Math.abs(curr.time - event.time) <
+          Math.abs(prev.time - event.time)
+          ? curr
+          : prev;
+      });
+
+      svg
+        .append("circle")
+        .attr("cx", x(closestDataPoint.time))
+        .attr("cy", y(closestDataPoint.value))
+        .attr("r", 6) // Increased dot size
+        .attr("fill", getEmilyMetricColor(metric));
+
+      svg
+        .append("text")
+        .attr("x", x(closestDataPoint.time))
+        .attr(
+          "y",
+          event.label === "Halfway"
+            ? y(closestDataPoint.value) - 20
+            : y(closestDataPoint.value) + 20
+        )
+        .attr("text-anchor", "middle")
+        .attr("font-size", "12px") // Increased font size
+        .attr("font-weight", "bold")
+        .text(event.label);
+    });
+  }
+
+  function getEmilyMetricColor(metric) {
+    const colors = {
+      HR: "#ff5252",
+      EDA: "#2196f3",
+      BVP: "#9c27b0",
+      TEMP: "#ff9800",
+    };
+    return colors[metric] || "#666";
+  }
+
+  // Set up the click handlers for the metric icons on landing page
+  const metricIcons = document.querySelectorAll(".metric-icon");
+  const chartOverlay = document.querySelector(".chart-modal-overlay");
+  const metricNameSpan = document.querySelector(".metric-name");
+
+  if (metricIcons.length > 0) {
+    metricIcons.forEach((icon) => {
+      icon.addEventListener("click", function () {
+        currentMetric = this.dataset.metric;
+        if (metricNameSpan) {
+          metricNameSpan.textContent = this.querySelector(".label").textContent;
+        }
+
+        // Show the modal overlay
+        if (chartOverlay) {
+          chartOverlay.style.display = "flex";
+          document.body.style.overflow = "hidden"; // Prevent scrolling while modal is open
+        }
+
+        // Render the chart in the modal
+        renderEmilyChart(currentMetric, currentExam);
+
+        // Highlight the active icon
+        metricIcons.forEach((i) => {
+          i.classList.remove("active");
+        });
+        this.classList.add("active");
+      });
+    });
+  }
+
+  // Set up the close button handler for Emily's metrics modal
+  const closeButton = document.querySelector(".close-button");
+  if (closeButton) {
+    closeButton.addEventListener("click", function () {
+      // Hide the modal overlay
+      if (chartOverlay) {
+        chartOverlay.style.display = "none";
+        document.body.style.overflow = ""; // Restore scrolling
+      }
+
+      // Reset active icon
+      if (metricIcons.length > 0) {
+        metricIcons.forEach((i) => {
+          i.classList.remove("active");
+        });
+      }
+    });
+  }
+
+  // Also close when clicking on the overlay background
+  if (chartOverlay) {
+    chartOverlay.addEventListener("click", function (event) {
+      if (event.target === chartOverlay) {
+        chartOverlay.style.display = "none";
+        document.body.style.overflow = ""; // Restore scrolling
+
+        // Reset active icon
+        if (metricIcons.length > 0) {
+          metricIcons.forEach((i) => {
+            i.classList.remove("active");
+          });
+        }
+      }
+    });
+  }
+
+  // Set up the exam button handlers
+  const examButtons = document.querySelectorAll(".exam-button");
+  if (examButtons.length > 0) {
+    examButtons.forEach((button) => {
+      button.addEventListener("click", function () {
+        currentExam = this.dataset.exam;
+
+        // Update active button
+        examButtons.forEach((b) => b.classList.remove("active"));
+        this.classList.add("active");
+
+        // Re-render the chart
+        renderEmilyChart(currentMetric, currentExam);
+      });
+    });
+  }
+
+  // Check scroll position on load
+  updateOnScroll();
+
+  // Update on scroll
+  window.addEventListener("scroll", updateOnScroll);
+
+  // Smooth scroll for arrow down
+  const scrollArrow = document.querySelector(".arrow-down");
+  if (scrollArrow) {
+    scrollArrow.addEventListener("click", function () {
+      window.scrollBy({
+        top: window.innerHeight,
+        behavior: "smooth",
+      });
+    });
+  }
+}

@@ -61,21 +61,41 @@
         </div>
         <div class="visual-container">
           <div class="metrics-grid">
-            <div class="metric-icon">
+            <div class="metric-icon" data-metric="HR">
               <span class="icon">❤️</span>
               <span class="label">Heart Rate</span>
             </div>
-            <div class="metric-icon">
+            <div class="metric-icon" data-metric="EDA">
               <span class="icon">💧</span>
-              <span class="label">Electrodermal Activity</span>
+              <span class="label">EDA</span>
             </div>
-            <div class="metric-icon">
+            <div class="metric-icon" data-metric="BVP">
               <span class="icon">🔄</span>
               <span class="label">Blood Volume Pulse</span>
             </div>
-            <div class="metric-icon">
+            <div class="metric-icon" data-metric="TEMP">
               <span class="icon">🌡️</span>
               <span class="label">Skin Temperature</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Modal overlay for chart -->
+        <div class="chart-modal-overlay">
+          <div class="emily-metrics-chart">
+            <button class="close-button">&times;</button>
+            <h3 class="chart-title">
+              Emily's <span class="metric-name">Heart Rate</span> During Exams
+            </h3>
+            <div id="lineChart"></div>
+            <div class="chart-controls">
+              <button class="exam-button active" data-exam="midterm1">
+                Midterm 1
+              </button>
+              <button class="exam-button" data-exam="midterm2">
+                Midterm 2
+              </button>
+              <button class="exam-button" data-exam="final">Final Exam</button>
             </div>
           </div>
         </div>
@@ -335,86 +355,5 @@
     </footer>
 
     <script src="script.js"></script>
-    <script>
-      // Enhanced scrollytelling script
-      document.addEventListener("DOMContentLoaded", function () {
-        const sections = document.querySelectorAll(".scroll-section");
-        const header = document.querySelector(".transparent-header");
-
-        // Set initial states
-        sections.forEach((section, index) => {
-          if (index === 0) {
-            section.classList.add("active");
-          }
-        });
-
-        // Helper function to check if element is in viewport
-        function isInViewport(element, offset = 0.8) {
-          const rect = element.getBoundingClientRect();
-          return rect.top <= window.innerHeight * offset && rect.bottom >= 0;
-        }
-
-        // Helper function to calculate scroll progress
-        function getScrollProgress(element) {
-          const rect = element.getBoundingClientRect();
-          const windowHeight = window.innerHeight;
-
-          // Calculate how far the element is through the viewport
-          let progress =
-            1 - (rect.top + rect.height) / (windowHeight + rect.height);
-
-          // Clamp between 0 and 1
-          return Math.min(Math.max(progress, 0), 1);
-        }
-
-        // Update scroll position for parallax and scroll-based animations
-        function updateOnScroll() {
-          sections.forEach((section) => {
-            // Add active class when section is in viewport
-            if (isInViewport(section)) {
-              section.classList.add("active");
-
-              // Get scroll progress for this section
-              const progress = getScrollProgress(section);
-
-              // Apply parallax effect to visual elements based on scroll progress
-              const visual = section.querySelector(".visual-container");
-              if (visual) {
-                visual.style.transform = `translateY(${progress * -30}px)`;
-              }
-            } else {
-              // Optional: remove active class when section leaves viewport
-              // section.classList.remove("active");
-            }
-          });
-
-          // Make header more transparent on scroll
-          const scrollY = window.scrollY;
-          if (scrollY > 100) {
-            header.style.backgroundColor = "rgba(255, 255, 255, 0.9)";
-          } else {
-            header.style.backgroundColor =
-              "rgba(255, 255, 255, " + (0.6 + scrollY / 250) + ")";
-          }
-        }
-
-        // Check scroll position on load
-        updateOnScroll();
-
-        // Update on scroll
-        window.addEventListener("scroll", updateOnScroll);
-
-        // Smooth scroll for arrow down
-        const scrollArrow = document.querySelector(".arrow-down");
-        if (scrollArrow) {
-          scrollArrow.addEventListener("click", function () {
-            window.scrollBy({
-              top: window.innerHeight,
-              behavior: "smooth",
-            });
-          });
-        }
-      });
-    </script>
   </body>
 </html>

@@ -1306,3 +1306,310 @@ footer {
   padding-top: 2rem;
   background-color: #f5f5f5;
 }
+
+/* Force overriding styles to put text left and visualization right */
+.scrollytelling-container {
+  width: 100%;
+}
+
+.scroll-section {
+  display: flex !important;
+  flex-direction: row !important;
+  align-items: center !important;
+  justify-content: flex-start !important;
+  min-height: 100vh;
+  text-align: left !important;
+  padding: 2rem 5% !important;
+}
+
+/* Center content specifically for the explore-intro section */
+#explore-intro {
+  flex-direction: column !important;
+  text-align: center !important;
+  justify-content: center !important;
+}
+
+#explore-intro .content-container {
+  width: 80% !important;
+  max-width: 800px !important;
+  text-align: center !important;
+  padding: 0 !important;
+  margin: 0 auto !important;
+  order: unset !important;
+}
+
+#explore-intro .content-container h2,
+#explore-intro .content-container p {
+  text-align: center !important;
+}
+
+#explore-intro .scroll-indicator {
+  margin-top: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+}
+
+/* Standard layout for all other sections */
+.content-container {
+  width: 40% !important;
+  margin: 0 !important;
+  text-align: left !important;
+  padding-right: 2rem !important;
+  max-width: none !important;
+  display: block !important;
+  order: 1 !important;
+}
+
+.visual-container {
+  width: 55% !important;
+  margin: 0 !important;
+  order: 2 !important;
+  padding-left: 2rem !important;
+  display: flex !important;
+  justify-content: center !important;
+  align-items: center !important;
+}
+
+.content-container h2,
+.content-container p {
+  text-align: left !important;
+  max-width: 100% !important;
+}
+
+/* Fix any vertical alignment issues in the existing UI */
+.student-silhouette,
+.metrics-grid,
+.metric-visualization,
+.eda-visualization,
+.temp-visualization,
+.recovery-visualization {
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  width: 100% !important;
+}
+
+/* Ensure proper flex behavior in mobile */
+@media (max-width: 768px) {
+  .scroll-section {
+    flex-direction: column !important;
+    text-align: center !important;
+  }
+
+  .content-container,
+  .visual-container {
+    width: 100% !important;
+    order: unset !important;
+    padding: 1rem 0 !important;
+  }
+
+  .content-container h2,
+  .content-container p {
+    text-align: center !important;
+  }
+}
+
+.metrics-grid {
+  display: flex !important;
+  flex-wrap: wrap !important;
+  justify-content: center !important;
+  gap: 20px !important;
+  width: 100% !important;
+}
+
+.metric-icon {
+  text-align: center !important;
+  padding: 15px !important;
+  cursor: pointer !important;
+  border-radius: 10px !important;
+  transition: transform 0.2s, box-shadow 0.2s !important;
+  min-width: 60px !important;
+  background-color: transparent !important;
+  border: none !important;
+}
+
+.metrics-grid.with-chart .metric-icon {
+  min-width: unset !important;
+  margin-bottom: 0 !important;
+}
+
+.metric-icon:hover .icon {
+  filter: grayscale(0%) !important;
+  transform: scale(1.1) !important;
+}
+
+.metric-icon .icon {
+  font-size: 2.5rem !important;
+  display: block !important;
+  margin-bottom: 10px !important;
+  filter: grayscale(30%) !important;
+  transition: filter 0.3s, transform 0.3s !important;
+}
+
+.metric-icon[data-metric="HR"] .icon {
+  color: #ff5252 !important;
+}
+
+.metric-icon[data-metric="EDA"] .icon {
+  color: #2196f3 !important;
+}
+
+.metric-icon[data-metric="BVP"] .icon {
+  color: #9c27b0 !important;
+}
+
+.metric-icon[data-metric="TEMP"] .icon {
+  color: #ff9800 !important;
+}
+
+.metric-icon .label {
+  font-size: 0.9rem !important;
+  display: block !important;
+  font-weight: bold !important;
+}
+
+/* Emily's metrics chart styles */
+.emily-metrics-chart {
+  width: 80% !important;
+  height: 600px !important;
+  background-color: white !important;
+  border-radius: 10px !important;
+  box-shadow: 0 10px 30px rgba(0, 0, 0, 0.3) !important;
+  padding: 30px !important;
+  position: relative;
+  max-width: 1000px;
+  display: flex;
+  flex-direction: column;
+}
+
+.chart-container {
+  position: relative;
+  margin-left: 140px;
+  width: calc(100% - 140px);
+  flex: 1;
+}
+
+.close-button {
+  position: absolute;
+  top: 15px;
+  right: 15px;
+  font-size: 24px;
+  cursor: pointer;
+  background: none;
+  border: none;
+  color: #555;
+  z-index: 10;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s;
+}
+
+.close-button:hover {
+  background-color: rgba(0, 0, 0, 0.1);
+  color: #000;
+}
+
+.chart-controls {
+  display: flex !important;
+  justify-content: center !important;
+  gap: 10px !important;
+  margin-top: 10px !important;
+}
+
+.exam-button {
+  padding: 8px 15px !important;
+  border: none !important;
+  border-radius: 20px !important;
+  background-color: #f0f0f0 !important;
+  cursor: pointer !important;
+  transition: background-color 0.2s !important;
+}
+
+.exam-button.active {
+  background-color: #ff7f50 !important;
+  color: white !important;
+}
+
+.metrics-grid.with-chart {
+  flex-direction: column !important;
+  flex-wrap: nowrap !important;
+  position: absolute !important;
+  left: 0 !important;
+  height: 600px !important;
+  width: 100px !important;
+  padding: 20px !important;
+  background-color: transparent !important;
+  border-radius: 10px !important;
+  display: flex !important;
+  justify-content: space-between !important;
+}
+
+/* Colored backgrounds for emoji icons */
+.metric-icon[data-metric="HR"] {
+  background-color: rgba(255, 82, 82, 0.1) !important;
+  border: 1px solid rgba(255, 82, 82, 0.3) !important;
+}
+
+.metric-icon[data-metric="EDA"] {
+  background-color: rgba(33, 150, 243, 0.1) !important;
+  border: 1px solid rgba(33, 150, 243, 0.3) !important;
+}
+
+.metric-icon[data-metric="BVP"] {
+  background-color: rgba(156, 39, 176, 0.1) !important;
+  border: 1px solid rgba(156, 39, 176, 0.3) !important;
+}
+
+.metric-icon[data-metric="TEMP"] {
+  background-color: rgba(255, 152, 0, 0.1) !important;
+  border: 1px solid rgba(255, 152, 0, 0.3) !important;
+}
+
+/* Active state for icons */
+.metric-icon.active {
+  transform: translateY(-5px) !important;
+  background-color: rgba(255, 255, 255, 1) !important;
+  box-shadow: 0 4px 8px rgba(0, 0, 0, 0.2) !important;
+}
+
+.metrics-grid.with-chart .metric-icon[data-metric="HR"] {
+  background-color: rgba(255, 82, 82, 0.2) !important;
+}
+
+.metrics-grid.with-chart .metric-icon[data-metric="EDA"] {
+  background-color: rgba(33, 150, 243, 0.2) !important;
+}
+
+.metrics-grid.with-chart .metric-icon[data-metric="BVP"] {
+  background-color: rgba(156, 39, 176, 0.2) !important;
+}
+
+.metrics-grid.with-chart .metric-icon[data-metric="TEMP"] {
+  background-color: rgba(255, 152, 0, 0.2) !important;
+}
+
+/* Chart title styling */
+.chart-title {
+  font-size: 1.4rem !important;
+  margin-bottom: 15px !important;
+  text-align: center !important;
+}
+
+/* Modal overlay styles */
+.chart-modal-overlay {
+  display: none;
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background-color: rgba(0, 0, 0, 0.7);
+  z-index: 1000;
+  justify-content: center;
+  align-items: center;
+}
