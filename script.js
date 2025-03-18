@@ -80,7 +80,9 @@ document.addEventListener("DOMContentLoaded", function () {
 // Load data from S3 buckets
 function loadFullDatasets() {
   // Use your actual S3 URL
-  const S3_BASE_URL = "https://duckbuckets.s3.amazonaws.com";
+  const S3_BASE_URL = "https://duckbuckets.s3.us-east-2.amazonaws.com";
+
+  console.log("Attempting to load data exclusively from AWS S3...");
 
   d3.json(`${S3_BASE_URL}/Midterm_1.json`)
     .then(function (data) {
@@ -91,19 +93,9 @@ function loadFullDatasets() {
       }
     })
     .catch(function (error) {
-      console.warn("Using sample data for Midterm_1:", error);
-      // Fallback to local data
-      d3.json("json/Midterm_1.json")
-        .then(function (data) {
-          console.log("Successfully loaded Midterm 1 data from local file");
-          midterm1Data = data;
-          if (currentExam === "Midterm_1") {
-            updateAllVisualizations();
-          }
-        })
-        .catch(function (localError) {
-          console.error("Failed to load Midterm 1 data:", localError);
-        });
+      console.error("Failed to load Midterm 1 data from AWS:", error);
+      // No fallback to local data - display error message
+      alert("Error: Could not load Midterm 1 data from AWS. " + error.message);
     });
 
   d3.json(`${S3_BASE_URL}/Midterm_2.json`)
@@ -115,19 +107,9 @@ function loadFullDatasets() {
       }
     })
     .catch(function (error) {
-      console.warn("Using sample data for Midterm_2:", error);
-      // Fallback to local data
-      d3.json("json/Midterm_2.json")
-        .then(function (data) {
-          console.log("Successfully loaded Midterm 2 data from local file");
-          midterm2Data = data;
-          if (currentExam === "Midterm_2") {
-            updateAllVisualizations();
-          }
-        })
-        .catch(function (localError) {
-          console.error("Failed to load Midterm 2 data:", localError);
-        });
+      console.error("Failed to load Midterm 2 data from AWS:", error);
+      // No fallback to local data - display error message
+      alert("Error: Could not load Midterm 2 data from AWS. " + error.message);
     });
 
   d3.json(`${S3_BASE_URL}/Final.json`)
@@ -139,22 +121,12 @@ function loadFullDatasets() {
       }
     })
     .catch(function (error) {
-      console.warn("Using sample data for Final:", error);
-      // Fallback to local data
-      d3.json("json/Final.json")
-        .then(function (data) {
-          console.log("Successfully loaded Final data from local file");
-          finalData = data;
-          if (currentExam === "Final") {
-            updateAllVisualizations();
-          }
-        })
-        .catch(function (localError) {
-          console.error("Failed to load Final data:", localError);
-        });
+      console.error("Failed to load Final data from AWS:", error);
+      // No fallback to local data - display error message
+      alert("Error: Could not load Final data from AWS. " + error.message);
     });
 
-  // Initialize the application after a short delay to ensure at least one dataset is loaded
+  // Initialize the application after a short delay
   setTimeout(initializeApp, 1000);
 }
 
