@@ -3,60 +3,349 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Student Stress Analysis Dashboard</title>
-    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap">
+    <title>The Physiology of Test Anxiety</title>
+    <!-- Dynamic base tag that works both locally and on GitHub Pages -->
+    <script>
+      // Determine if we're on GitHub Pages or local
+      (function () {
+        var isGitHubPages = window.location.hostname.includes("github.io");
+        var basePath = isGitHubPages ? "/exam-stress-visualization/" : "/";
+        document.write('<base href="' + basePath + '" />');
+      })();
+    </script>
     <link rel="stylesheet" href="style.css" />
     <script src="https://d3js.org/d3.v7.min.js"></script>
   </head>
   <body>
-    <div class="container">
-      <header>
-        <h1>Physiological Stress Timeline of Students Taking Their Final</h1>
-        <p class="subtitle">Analyze real-time physiological indicators during examination</p>
-      </header>
+    <header class="transparent-header">
+      <h1>The Physiology of Test Anxiety</h1>
+      <p>
+        An explorable explanation of how our bodies respond during high-stakes
+        exams
+      </p>
+    </header>
 
-      <div class="controls">
-        <div class="control-group">
-          <label for="student-select">Select Student:</label>
-          <select id="student-select" class="select-styled"></select>
+    <div class="scrollytelling-container">
+      <section class="scroll-section" id="intro">
+        <div class="content-container">
+          <h2>This is a student taking an exam.</h2>
+          <p>We'll call her Mina. It's her midterm, and her heart is racing.</p>
+          <p>
+            Her palms are sweaty. Her breathing is rapid. Her mind is racing.
+          </p>
+          <p>
+            <strong>This is the physiology of test anxiety.</strong>
+          </p>
+        </div>
+        <div class="visual-container">
+          <div class="student-container">
+            <img
+              src="https://em-content.zobj.net/source/apple/354/woman-standing_1f9cd-200d-2640-fe0f.png"
+              alt="Mina"
+              class="emoji-girl"
+            />
+          </div>
+        </div>
+      </section>
+
+      <section class="scroll-section" id="stress-intro">
+        <div class="content-container">
+          <h2>Stress affects the entire body</h2>
+          <p>
+            When we're anxious during exams, our bodies undergo measurable
+            physiological changes - from our skin to our heart to our brain.
+          </p>
+          <p>
+            These changes can affect our performance, focus, and ability to
+            think clearly.
+          </p>
+        </div>
+        <div class="visual-container">
+          <div class="metrics-grid">
+            <div class="metric-icon" data-metric="HR">
+              <span class="icon">❤️</span>
+              <span class="label">Heart Rate</span>
+            </div>
+            <div class="metric-icon" data-metric="EDA">
+              <span class="icon">💧</span>
+              <span class="label">EDA</span>
+            </div>
+            <div class="metric-icon" data-metric="IBI">
+              <span class="icon">⏱️</span>
+              <span class="label">Inter-Beat Interval</span>
+            </div>
+            <div class="metric-icon" data-metric="TEMP">
+              <span class="icon">🌡️</span>
+              <span class="label">Skin Temperature</span>
+            </div>
+          </div>
         </div>
 
-        <div class="control-group">
-          <label for="metric-select">Select Physiological Metric:</label>
-          <select id="metric-select" class="select-styled"></select>
+        <!-- Modal overlay for chart -->
+        <div class="chart-modal-overlay">
+          <div class="mina-metrics-chart">
+            <button class="close-button">&times;</button>
+            <h3 class="chart-title">
+              Mina's <span class="metric-name">Heart Rate</span> During Exams
+            </h3>
+            <div id="lineChart"></div>
+            <div class="chart-controls">
+              <button class="exam-button active" data-exam="midterm1">
+                Midterm 1
+              </button>
+              <button class="exam-button" data-exam="midterm2">
+                Midterm 2
+              </button>
+              <button class="exam-button" data-exam="final">Final Exam</button>
+            </div>
+          </div>
         </div>
-      </div>
+      </section>
 
-      <div class="visualization-container">
-        <div class="chart-container">
-          <svg id="chart"></svg>
+      <section class="scroll-section" id="heart-rate">
+        <div class="content-container">
+          <h2>Heart Rate</h2>
+          <p>
+            During exams, a student's heart rate can increase by 20-40 beats per
+            minute above their resting rate.
+          </p>
+          <p>
+            This increase can last for extended periods, contributing to
+            feelings of tension and reduced cognitive performance.
+          </p>
         </div>
-        <div class="legend"></div>
-      </div>
+        <div class="visual-container">
+          <div class="metric-visualization">
+            <div class="hr-graph">
+              <div class="graph-bar" style="height: 30%">
+                <span>Resting</span>
+              </div>
+              <div class="graph-bar highlighted" style="height: 80%">
+                <span>Exam</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
-      <div class="stats-panel">
-        <div class="stat-card" title="The average value of the selected physiological stress metric during the exam">
-          <h3>Average Stress Level</h3>
-          <div id="avg-stress" class="stat-value">-</div>
-          <div class="stat-description">Mean value throughout the exam</div>
+      <section class="scroll-section" id="skin-response">
+        <div class="content-container">
+          <h2>Electrodermal Activity (EDA)</h2>
+          <p>
+            EDA measures tiny changes in sweat gland activity. When we're
+            stressed, these glands become more active.
+          </p>
+          <p>
+            This is why your palms get sweaty during a difficult test - a direct
+            measurement of your sympathetic nervous system's "fight or flight"
+            response.
+          </p>
         </div>
-        <div class="stat-card" title="The time when the selected stress metric reached its highest value">
-          <h3>Peak Stress Time</h3>
-          <div id="peak-stress-time" class="stat-value">-</div>
-          <div class="stat-description">When highest stress occurred</div>
+        <div class="visual-container">
+          <div class="eda-visualization">
+            <div class="sweat-animation"></div>
+            <div class="eda-reading">
+              <span class="baseline">Baseline</span>
+              <span class="line"></span>
+              <span class="stressed">Stressed</span>
+            </div>
+          </div>
         </div>
-        <div class="stat-card" title="Standard deviation - shows how much the stress levels fluctuate over time">
-          <h3>Stress Variability</h3>
-          <div id="stress-variability" class="stat-value">-</div>
-          <div class="stat-description">Measures consistency of stress response</div>
+      </section>
+
+      <section class="scroll-section" id="temperature">
+        <div class="content-container">
+          <h2>Body Temperature Changes</h2>
+          <p>
+            During stress, blood flow redistributes in our body. Extremities
+            like hands may become cooler as blood is directed to major muscle
+            groups.
+          </p>
+          <p>
+            This can be measured as subtle changes in skin temperature - another
+            window into our body's stress response.
+          </p>
         </div>
-      </div>
-      
-      <div class="explanation-panel">
-        <h3>Understanding Stress Variability</h3>
-        <p>Stress variability is measured using standard deviation, which indicates how much a student's physiological stress levels fluctuate during the exam. A higher value means more erratic stress responses, while a lower value suggests more consistent stress levels. High variability may indicate moments of panic or relief throughout the exam.</p>
-      </div>
+        <div class="visual-container">
+          <div class="temp-visualization">
+            <div class="body-heat-map">
+              <div class="gradient"></div>
+              <div class="labels">
+                <span>Cooler</span>
+                <span>Warmer</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scroll-section" id="recovery">
+        <div class="content-container">
+          <h2>Recovery Patterns</h2>
+          <p>
+            Not all students respond to stress in the same way. Some recover
+            quickly after a stressful moment, while others take longer to return
+            to baseline.
+          </p>
+          <p>
+            These recovery patterns can predict academic performance and
+            well-being.
+          </p>
+        </div>
+        <div class="visual-container">
+          <div class="recovery-visualization">
+            <div class="recovery-chart">
+              <div class="recovery-line fast">
+                <span class="label">Fast Recovery</span>
+              </div>
+              <div class="recovery-line slow">
+                <span class="label">Slow Recovery</span>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section class="scroll-section" id="explore-intro">
+        <div class="content-container">
+          <h2>Explore the data yourself</h2>
+          <p>
+            We've collected physiological data from 10 students across three
+            different exams.
+          </p>
+          <p>
+            Choose a visualization method below to begin exploring how their
+            bodies responded to academic stress.
+          </p>
+          <div class="scroll-indicator">
+            <span>Scroll to continue</span>
+            <div class="arrow-down"></div>
+          </div>
+        </div>
+      </section>
     </div>
+
+    <main id="landing-page">
+      <section id="welcome">
+        <h2>Welcome to the Exam Stress Visualization</h2>
+        <p>
+          This interactive tool allows you to explore how our bodies respond to
+          academic stress during exams. We've collected physiological data from
+          10 students using wearable devices during three different exam
+          sessions. Choose a visualization method below to begin exploring the
+          data.
+        </p>
+      </section>
+
+      <section id="visualization-selector">
+        <div class="viz-grid">
+          <div class="viz-card" id="body-map-card">
+            <div class="viz-icon">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/3209/3209114.png"
+                alt="Body Map Icon"
+              />
+            </div>
+            <div class="viz-info">
+              <h3>Body Map</h3>
+              <p>
+                Explore how different parts of the body respond to exam stress
+                by interacting with an anatomical visualization.
+              </p>
+              <a href="body-map.html" class="viz-button">Explore Body Map</a>
+            </div>
+          </div>
+
+          <div class="viz-card" id="timeline-card">
+            <div class="viz-icon">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/4789/4789928.png"
+                alt="Timeline Icon"
+              />
+            </div>
+            <div class="viz-info">
+              <h3>Timeline Explorer</h3>
+              <p>
+                See how physiological responses change throughout the duration
+                of an exam with interactive timelines.
+              </p>
+              <a href="timeline.html" class="viz-button">Explore Timeline</a>
+            </div>
+          </div>
+
+          <div class="viz-card" id="comparison-card">
+            <div class="viz-icon">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/3094/3094851.png"
+                alt="Comparison Icon"
+              />
+            </div>
+            <div class="viz-info">
+              <h3>Student Comparison</h3>
+              <p>
+                Compare physiological responses between students with different
+                performance levels.
+              </p>
+              <a href="comparison.html" class="viz-button"
+                >Explore Comparison</a
+              >
+            </div>
+          </div>
+
+          <div class="viz-card" id="recovery-card">
+            <div class="viz-icon">
+              <img
+                src="https://cdn-icons-png.flaticon.com/512/2966/2966488.png"
+                alt="Recovery Icon"
+              />
+            </div>
+            <div class="viz-info">
+              <h3>Stress Recovery Patterns</h3>
+              <p>
+                Analyze how quickly students recover from physiological stress
+                spikes during exams.
+              </p>
+              <a href="recovery.html" class="viz-button">Explore Recovery</a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <section id="about-data">
+        <h2>About the Data</h2>
+        <p>
+          This visualization uses physiological data collected from 10 students
+          during exams using the Empatica E4 wearable device, which measures:
+        </p>
+        <ul>
+          <li>
+            <strong>Electrodermal Activity (EDA)</strong>: Skin conductance
+            measured in microsiemens (μS), indicating sympathetic nervous system
+            arousal
+          </li>
+          <li>
+            <strong>Heart Rate (HR)</strong>: Beats per minute (BPM) calculated
+            from the blood volume pulse signal
+          </li>
+          <li>
+            <strong>Skin Temperature (TEMP)</strong>: Measured in degrees
+            Celsius (°C)
+          </li>
+          <li>
+            <strong>Inter-Beat Interval (IBI)</strong>: Time between heartbeats
+            in seconds (s)
+          </li>
+        </ul>
+        <p>
+          All midterm exams lasted 1.5 hours while the final exam was 3 hours
+          long. All exams started at 9:00 AM.
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created for Data Visualization Final Project</p>
+    </footer>
 
     <script src="script.js"></script>
   </body>

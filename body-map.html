@@ -1,0 +1,82 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Body Map - The Physiology of Test Anxiety</title>
+    <!-- Dynamic base tag that works both locally and on GitHub Pages -->
+    <script>
+      // Determine if we're on GitHub Pages or local
+      (function () {
+        var isGitHubPages = window.location.hostname.includes("github.io");
+        var basePath = isGitHubPages ? "/exam-stress-visualization/" : "/";
+        document.write('<base href="' + basePath + '" />');
+      })();
+    </script>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>The Physiology of Test Anxiety</h1>
+      <p>
+        An explorable explanation of how our bodies respond during high-stakes
+        exams
+      </p>
+    </header>
+
+    <nav class="visualization-nav">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="body-map.html" class="active">Body Map</a></li>
+        <li><a href="timeline.html">Timeline</a></li>
+        <li><a href="comparison.html">Student Comparison</a></li>
+        <li><a href="recovery.html">Recovery Patterns</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="body-map">
+        <h2>Interactive Body Map</h2>
+        <p>
+          Click on different parts of the body to explore physiological
+          responses during exams
+        </p>
+
+        <div class="controls-container">
+          <div class="exam-selector">
+            <h3>Select an Exam:</h3>
+            <select id="exam-select">
+              <option value="Midterm_1">Midterm 1</option>
+              <option value="Midterm_2">Midterm 2</option>
+              <option value="Final">Final</option>
+            </select>
+          </div>
+
+          <div class="student-selector">
+            <h3>Select Students to Compare:</h3>
+            <div id="student-checkboxes">
+              <!-- Student checkboxes will be added dynamically with JavaScript -->
+            </div>
+          </div>
+        </div>
+
+        <div class="body-map-container">
+          <div id="body-visualization"></div>
+          <div id="body-metrics">
+            <h3>Physiological Metrics</h3>
+            <div id="selected-metric-display">
+              <p>Click on a body part to see related metrics</p>
+            </div>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created for Data Visualization Final Project</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>

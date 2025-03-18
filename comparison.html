@@ -1,0 +1,140 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Student Comparison - The Physiology of Test Anxiety</title>
+    <!-- Dynamic base tag that works both locally and on GitHub Pages -->
+    <script>
+      // Determine if we're on GitHub Pages or local
+      (function () {
+        var isGitHubPages = window.location.hostname.includes("github.io");
+        var basePath = isGitHubPages ? "/exam-stress-visualization/" : "/";
+        document.write('<base href="' + basePath + '" />');
+      })();
+    </script>
+    <link rel="stylesheet" href="style.css" />
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>The Physiology of Test Anxiety</h1>
+      <p>
+        An explorable explanation of how our bodies respond during high-stakes
+        exams
+      </p>
+    </header>
+
+    <nav class="visualization-nav">
+      <ul>
+        <li><a href="index.html">Home</a></li>
+        <li><a href="body-map.html">Body Map</a></li>
+        <li><a href="timeline.html">Timeline</a></li>
+        <li><a href="comparison.html" class="active">Student Comparison</a></li>
+        <li><a href="recovery.html">Recovery Patterns</a></li>
+      </ul>
+    </nav>
+
+    <main>
+      <section id="comparison">
+        <h2>Student Comparison Dashboard</h2>
+        <p>
+          Compare physiological responses between students with different
+          performance levels
+        </p>
+
+        <div class="controls-container">
+          <div class="exam-selector">
+            <h3>Select an Exam:</h3>
+            <select id="exam-select">
+              <option value="Midterm_1">Midterm 1</option>
+              <option value="Midterm_2">Midterm 2</option>
+              <option value="Final">Final</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="comparison-controls">
+          <div class="metric-selector">
+            <label for="x-axis-select">X-Axis Metric:</label>
+            <select id="x-axis-select">
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR">Average Heart Rate</option>
+              <option value="avgIBI">Average IBI</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR">Heart Rate Variability</option>
+              <option value="variabilityIBI">IBI Variability</option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+              <option value="maxIBI">Maximum IBI</option>
+            </select>
+          </div>
+
+          <div class="metric-selector">
+            <label for="y-axis-select">Y-Axis Metric:</label>
+            <select id="y-axis-select">
+              <option value="grade">Grade</option>
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR" selected>Average Heart Rate</option>
+              <option value="avgIBI">Average IBI</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR">Heart Rate Variability</option>
+              <option value="variabilityIBI">IBI Variability</option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+              <option value="maxIBI">Maximum IBI</option>
+            </select>
+          </div>
+
+          <div class="bubble-size-selector">
+            <label for="bubble-size-select">Bubble Size:</label>
+            <select id="bubble-size-select">
+              <option value="grade">Grade</option>
+              <option value="avgEDA">Average EDA</option>
+              <option value="avgHR">Average Heart Rate</option>
+              <option value="avgIBI">Average IBI</option>
+              <option value="avgTEMP">Average Temperature</option>
+              <option value="variabilityEDA">EDA Variability</option>
+              <option value="variabilityHR" selected>
+                Heart Rate Variability
+              </option>
+              <option value="variabilityIBI">IBI Variability</option>
+              <option value="maxEDA">Maximum EDA</option>
+              <option value="maxHR">Maximum Heart Rate</option>
+              <option value="maxIBI">Maximum IBI</option>
+              <option value="constant">Constant Size</option>
+            </select>
+          </div>
+
+          <div class="performance-filter">
+            <label for="performance-select">Filter by Performance:</label>
+            <select id="performance-select">
+              <option value="all">All Students</option>
+              <option value="high">High Performers</option>
+              <option value="medium">Medium Performers</option>
+              <option value="low">Low Performers</option>
+            </select>
+          </div>
+        </div>
+
+        <div id="comparison-visualization"></div>
+
+        <div class="insights">
+          <h3>Key Insights:</h3>
+          <ul id="insights-list">
+            <!-- Insights will be populated dynamically -->
+          </ul>
+        </div>
+      </section>
+    </main>
+
+    <footer>
+      <p>Created for Data Visualization Final Project</p>
+    </footer>
+
+    <script src="script.js"></script>
+  </body>
+</html>
+
