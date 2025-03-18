@@ -27,23 +27,8 @@ document.addEventListener("DOMContentLoaded", function () {
 
   console.log("Current page:", currentPage);
 
-  // Load all three datasets from the "json" folder
-  Promise.all([
-    d3.json("json/Midterm_1.json"),
-    d3.json("json/Midterm_2.json"),
-    d3.json("json/Final.json"),
-  ])
-    .then(function (data) {
-      midterm1Data = data[0];
-      midterm2Data = data[1];
-      finalData = data[2];
-
-      initializeApp();
-    })
-    .catch(function (error) {
-      console.error("Error loading the data files:", error);
-      alert("Failed to load data files. Please check the console for details.");
-    });
+  // Load all three datasets from S3
+  loadFullDatasets();
 
   // Setup event listeners based on the current page
   if (currentPage !== "landing") {
@@ -92,6 +77,87 @@ document.addEventListener("DOMContentLoaded", function () {
   }
 });
 
+// Load data from S3 buckets
+function loadFullDatasets() {
+  // Use your actual S3 URL
+  const S3_BASE_URL = "https://duckbuckets.s3.amazonaws.com";
+
+  d3.json(`${S3_BASE_URL}/Midterm_1.json`)
+    .then(function (data) {
+      console.log("Successfully loaded Midterm 1 data from S3");
+      midterm1Data = data;
+      if (currentExam === "Midterm_1") {
+        updateAllVisualizations();
+      }
+    })
+    .catch(function (error) {
+      console.warn("Using sample data for Midterm_1:", error);
+      // Fallback to local data
+      d3.json("json/Midterm_1.json")
+        .then(function (data) {
+          console.log("Successfully loaded Midterm 1 data from local file");
+          midterm1Data = data;
+          if (currentExam === "Midterm_1") {
+            updateAllVisualizations();
+          }
+        })
+        .catch(function (localError) {
+          console.error("Failed to load Midterm 1 data:", localError);
+        });
+    });
+
+  d3.json(`${S3_BASE_URL}/Midterm_2.json`)
+    .then(function (data) {
+      console.log("Successfully loaded Midterm 2 data from S3");
+      midterm2Data = data;
+      if (currentExam === "Midterm_2") {
+        updateAllVisualizations();
+      }
+    })
+    .catch(function (error) {
+      console.warn("Using sample data for Midterm_2:", error);
+      // Fallback to local data
+      d3.json("json/Midterm_2.json")
+        .then(function (data) {
+          console.log("Successfully loaded Midterm 2 data from local file");
+          midterm2Data = data;
+          if (currentExam === "Midterm_2") {
+            updateAllVisualizations();
+          }
+        })
+        .catch(function (localError) {
+          console.error("Failed to load Midterm 2 data:", localError);
+        });
+    });
+
+  d3.json(`${S3_BASE_URL}/Final.json`)
+    .then(function (data) {
+      console.log("Successfully loaded Final data from S3");
+      finalData = data;
+      if (currentExam === "Final") {
+        updateAllVisualizations();
+      }
+    })
+    .catch(function (error) {
+      console.warn("Using sample data for Final:", error);
+      // Fallback to local data
+      d3.json("json/Final.json")
+        .then(function (data) {
+          console.log("Successfully loaded Final data from local file");
+          finalData = data;
+          if (currentExam === "Final") {
+            updateAllVisualizations();
+          }
+        })
+        .catch(function (localError) {
+          console.error("Failed to load Final data:", localError);
+        });
+    });
+
+  // Initialize the application after a short delay to ensure at least one dataset is loaded
+  setTimeout(initializeApp, 1000);
+}
+
 // Initialize the application with the loaded data
 function initializeApp() {
   // Skip initialization for landing page
@@ -117,6 +183,26 @@ function initializeApp() {
 
   // Add resize listener for responsive updates
   addResizeListener();
+}
+
+// Update all visualizations based on the current page
+function updateAllVisualizations() {
+  // Skip if on landing page
+  if (currentPage === "landing") {
+    return;
+  }
+
+  // Page-specific updates
+  if (currentPage === "body-map") {
+    updateBodyMap();
+  } else if (currentPage === "timeline") {
+    updateTimelineVisualization();
+  } else if (currentPage === "comparison") {
+    updateComparisonVisualization();
+    populateInsights();
+  } else if (currentPage === "recovery") {
+    // Recovery visualization updates when analyze button is clicked
+  }
 }
 
 // Add resize listener for responsive updates
