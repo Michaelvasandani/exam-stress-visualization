@@ -1,0 +1,932 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Advanced Exam Stress Visualizations</title>
+    
+    <!-- D3.js -->
+    <script src="https://d3js.org/d3.v7.min.js"></script>
+    
+    <link rel="stylesheet" href="style.css">
+    <style>
+        .visualization-container {
+            margin: 20px;
+            padding: 20px;
+            background: white;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        .controls {
+            margin-bottom: 20px;
+        }
+
+        select, button {
+            padding: 8px;
+            margin-right: 10px;
+        }
+
+        .tooltip {
+            position: absolute;
+            background: white;
+            padding: 10px;
+            border-radius: 4px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.2);
+            pointer-events: none;
+            display: none;
+        }
+
+        .loading {
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 300px;
+            font-size: 1.2em;
+            color: #666;
+        }
+
+        .error {
+            padding: 20px;
+            background-color: #fee;
+            border-left: 4px solid #e63946;
+            margin: 10px 0;
+            color: #333;
+        }
+
+        .error h3 {
+            color: #e63946;
+            margin-top: 0;
+        }
+
+        .loading:after {
+            content: "...";
+            animation: dots 1.5s steps(5, end) infinite;
+        }
+
+        @keyframes dots {
+            0%, 20% { content: "."; }
+            40% { content: ".."; }
+            60% { content: "..."; }
+            80% { content: "...."; }
+            100% { content: "....."; }
+        }
+        
+        .debug-panel {
+            position: fixed;
+            bottom: 0;
+            right: 0;
+            background: rgba(0, 0, 0, 0.7);
+            color: #fff;
+            font-family: monospace;
+            padding: 10px;
+            max-width: 400px;
+            max-height: 300px;
+            overflow: auto;
+            z-index: 1000;
+            font-size: 12px;
+            display: none;
+        }
+
+        /* Bar chart race styles */
+        .bar-chart-container {
+            position: relative;
+            height: 600px;
+        }
+        
+        .bar {
+            transition: all 0.3s ease;
+        }
+        
+        .bar-label {
+            font-size: 14px;
+            font-weight: bold;
+        }
+        
+        .value-label {
+            font-size: 14px;
+        }
+        
+        .time-indicator {
+            position: absolute;
+            top: 10px;
+            right: 20px;
+            font-size: 24px;
+            font-weight: bold;
+            color: #333;
+        }
+        
+        .control-panel {
+            margin-top: 10px;
+            display: flex;
+            align-items: center;
+        }
+        
+        .play-button {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 15px;
+        }
+        
+        .reset-button {
+            background: #f44336;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 16px;
+            margin-right: 15px;
+        }
+        
+        .time-slider {
+            flex-grow: 1;
+            height: 10px;
+        }
+    </style>
+</head>
+<body>
+    <header>
+        <h1>Advanced Exam Stress Visualizations</h1>
+        <nav>
+            <a href="index.html">Back to Home</a>
+        </nav>
+    </header>
+
+    <main>
+        <section class="visualization-container">
+            <h2>Animated Stress Level Race</h2>
+            <p>Watch how student stress levels (measured by different metrics) change over the course of the exam in this animated visualization.</p>
+            <div class="controls">
+                <select id="bar-race-metric">
+                    <option value="EDA">Electrodermal Activity</option>
+                    <option value="HR">Heart Rate</option>
+                    <option value="BVP">Blood Volume Pulse</option>
+                    <option value="TEMP">Temperature</option>
+                </select>
+                <select id="bar-race-exam">
+                    <option value="Midterm_1">Midterm 1</option>
+                    <option value="Midterm_2">Midterm 2</option>
+                    <option value="Final">Final Exam</option>
+                </select>
+            </div>
+            <div id="bar-race-container" class="bar-chart-container">
+                <div class="loading">Loading visualization</div>
+            </div>
+            <div class="control-panel">
+                <button id="play-button" class="play-button">Play</button>
+                <button id="reset-button" class="reset-button">Reset</button>
+                <input type="range" id="time-slider" class="time-slider" min="0" max="6" value="0" step="1">
+            </div>
+        </section>
+    </main>
+    
+    <div id="debug-panel" class="debug-panel"></div>
+
+    <script>
+        // Debug logging function
+        const DEBUG_MODE = true;
+        
+        function debugLog(message, data) {
+            if (DEBUG_MODE) {
+                console.log(message, data);
+                
+                const panel = document.getElementById('debug-panel');
+                if (panel) {
+                    panel.style.display = 'block';
+                    const time = new Date().toLocaleTimeString();
+                    const logMessage = document.createElement('div');
+                    logMessage.textContent = `[${time}] ${message}`;
+                    
+                    if (data !== undefined) {
+                        try {
+                            const dataString = typeof data === 'object' ? 
+                                JSON.stringify(data).substring(0, 100) + (JSON.stringify(data).length > 100 ? '...' : '') :
+                                String(data);
+                            const dataElement = document.createElement('div');
+                            dataElement.textContent = dataString;
+                            dataElement.style.color = '#aaa';
+                            dataElement.style.marginLeft = '10px';
+                            logMessage.appendChild(dataElement);
+                        } catch (e) {
+                            const dataElement = document.createElement('div');
+                            dataElement.textContent = '[Object]';
+                            dataElement.style.color = '#aaa';
+                            dataElement.style.marginLeft = '10px';
+                            logMessage.appendChild(dataElement);
+                        }
+                    }
+                    
+                    panel.appendChild(logMessage);
+                    panel.scrollTop = panel.scrollHeight;
+                    
+                    // Limit the number of log entries
+                    while (panel.childElementCount > 50) {
+                        panel.removeChild(panel.firstChild);
+                    }
+                }
+            }
+        }
+
+        // Global animation control functions
+        let barRaceState = {
+            currentTimeIndex: 0,
+            animationProgress: 0,
+            isPlaying: false,
+            animationTimer: null
+        };
+
+        // Global data storage
+        let currentExam = "Midterm_1";
+        let examData = {};
+        let fallbackData = null;
+
+        // Load exam data - this function is missing from script.js and causing errors
+        async function loadExamData(examName) {
+            debugLog('Loading data for exam', examName);
+            try {
+                // Try to get data from script.js first
+                if (typeof getCurrentDataset === 'function') {
+                    const dataset = getCurrentDataset();
+                    if (dataset) {
+                        examData[examName] = dataset;
+                        debugLog('Loaded data from script.js', { examName, datasetSize: Object.keys(dataset).length });
+                        return dataset;
+                    }
+                }
+                
+                // If data not available, create fallback data
+                debugLog('Creating fallback data for', examName);
+                if (!fallbackData) {
+                    fallbackData = createFallbackData();
+                }
+                examData[examName] = fallbackData;
+                return fallbackData;
+            } catch (error) {
+                debugLog('Error loading exam data', error);
+                // Create fallback data if loading fails
+                if (!fallbackData) {
+                    fallbackData = createFallbackData();
+                }
+                examData[examName] = fallbackData;
+                return fallbackData;
+            }
+        }
+        
+        // Create fallback data when real data can't be loaded
+        function createFallbackData() {
+            debugLog('Creating fallback dataset');
+            const students = ['Student1', 'Student2', 'Student3', 'Student4', 'Student5', 
+                             'Student6', 'Student7', 'Student8', 'Student9', 'Student10'];
+            const timePoints = 60; // 60 minutes
+            const metrics = ['EDA', 'HR', 'BVP', 'TEMP'];
+            
+            const dataset = {};
+            
+            students.forEach(student => {
+                dataset[student] = {
+                    grade: Math.floor(Math.random() * 40) + 60, // 60-100
+                    performance: ['Low', 'Medium', 'High'][Math.floor(Math.random() * 3)],
+                    data: {}
+                };
+                
+                metrics.forEach(metric => {
+                    dataset[student].data[metric] = [];
+                    
+                    // Initial value in reasonable range for the metric
+                    let baseValue;
+                    switch(metric) {
+                        case 'EDA': baseValue = Math.random() * 5 + 1; break; // 1-6 µS
+                        case 'HR': baseValue = Math.random() * 30 + 70; break; // 70-100 BPM
+                        case 'BVP': baseValue = Math.random() * 10 - 5; break; // -5 to 5
+                        case 'TEMP': baseValue = Math.random() * 2 + 30; break; // 30-32 °C
+                    }
+                    
+                    // Generate time series data with some randomness and trends
+                    for (let t = 0; t < timePoints; t++) {
+                        // Add some stress in the middle of the exam
+                        const stressFactor = t > 15 && t < 45 ? Math.sin((t - 15) * Math.PI / 30) * 0.4 : 0;
+                        const randomness = (Math.random() - 0.5) * 0.2;
+                        
+                        let value = baseValue * (1 + stressFactor + randomness);
+                        
+                        // Ensure values stay in reasonable ranges
+                        switch(metric) {
+                            case 'EDA': value = Math.max(0.5, Math.min(10, value)); break;
+                            case 'HR': value = Math.max(60, Math.min(120, value)); break;
+                            case 'BVP': value = Math.max(-10, Math.min(10, value)); break;
+                            case 'TEMP': value = Math.max(28, Math.min(35, value)); break;
+                        }
+                        
+                        dataset[student].data[metric].push({
+                            time: t,
+                            value: value
+                        });
+                    }
+                });
+            });
+            
+            return dataset;
+        }
+
+        // Start animation function - called from createBarRaceChart
+        function startBarRaceAnimation() {
+            debugLog('Starting bar race animation');
+            const container = document.getElementById('bar-race-container');
+            
+            // Update global state
+            barRaceState.isPlaying = true;
+            
+            // Clear existing timer
+            if (barRaceState.animationTimer) {
+                clearInterval(barRaceState.animationTimer);
+            }
+            
+            // Animation settings
+            const fps = 30;
+            const animationDuration = 1000; // 1 second per transition
+            
+            barRaceState.animationTimer = setInterval(() => {
+                barRaceState.animationProgress += (1 / (animationDuration / (1000 / fps)));
+                
+                if (barRaceState.animationProgress >= 1) {
+                    // Move to next timepoint
+                    barRaceState.animationProgress = 0;
+                    barRaceState.currentTimeIndex++;
+                    
+                    if (barRaceState.currentTimeIndex >= 6) {
+                        // End of animation
+                        barRaceState.currentTimeIndex = 0;
+                        barRaceState.isPlaying = false;
+                        
+                        // Update UI
+                        const playButton = document.getElementById('play-button');
+                        playButton.textContent = 'Play';
+                        playButton.style.backgroundColor = '#4CAF50';
+                        
+                        // Clear timer
+                        clearInterval(barRaceState.animationTimer);
+                        barRaceState.animationTimer = null;
+                    }
+                    
+                    // Update time slider
+                    const timeSlider = document.getElementById('time-slider');
+                    timeSlider.value = barRaceState.currentTimeIndex;
+                }
+                
+                // Call visualization update
+                if (typeof window.updateBarRaceVisualization === 'function') {
+                    window.updateBarRaceVisualization();
+                } else if (container && container._updateVisualization) {
+                    // Fallback to container's update function
+                    container._updateVisualization(barRaceState.currentTimeIndex, barRaceState.animationProgress);
+                }
+            }, 1000 / fps);
+            
+            // Store timer in container for reference
+            container._animationTimer = barRaceState.animationTimer;
+            container._isPlaying = true;
+            container._currentTimeIndex = barRaceState.currentTimeIndex;
+            container._animationProgress = barRaceState.animationProgress;
+        }
+
+        // Reset animation function
+        function resetBarRaceAnimation() {
+            debugLog('Resetting bar race animation');
+            
+            // Clear animation timer
+            if (barRaceState.animationTimer) {
+                clearInterval(barRaceState.animationTimer);
+                barRaceState.animationTimer = null;
+            }
+            
+            // Reset state
+            barRaceState.currentTimeIndex = 0;
+            barRaceState.animationProgress = 0;
+            barRaceState.isPlaying = false;
+            
+            // Update UI
+            const timeSlider = document.getElementById('time-slider');
+            timeSlider.value = 0;
+            
+            // Call visualization update
+            const container = document.getElementById('bar-race-container');
+            if (typeof window.updateBarRaceVisualization === 'function') {
+                window.updateBarRaceVisualization();
+            } else if (container && container._updateVisualization) {
+                // Fallback to container's update function
+                container._updateVisualization(0, 0);
+            }
+        }
+
+        // Update visualization - this will be called by script.js
+        function updateBarRaceVisualization() {
+            // This function is now defined in the createBarRaceChart function
+            // This implementation is just a fallback
+            const container = document.getElementById('bar-race-container');
+            
+            if (container) {
+                container._currentTimeIndex = barRaceState.currentTimeIndex;
+                container._animationProgress = barRaceState.animationProgress;
+                container._isPlaying = barRaceState.isPlaying;
+                
+                // Call container's update function if available
+                if (container._updateVisualization) {
+                    container._updateVisualization(barRaceState.currentTimeIndex, barRaceState.animationProgress);
+                }
+            }
+        }
+
+        // Helper function to show error messages
+        function showError(containerId, title, message) {
+            debugLog(`Error in ${containerId}: ${title}`, message);
+            const container = document.getElementById(containerId);
+            const errorDiv = document.createElement('div');
+            errorDiv.className = 'error';
+            
+            errorDiv.innerHTML = `
+                <h3>${title}</h3>
+                <p>${message}</p>
+            `;
+            
+            container.innerHTML = '';
+            container.appendChild(errorDiv);
+        }
+
+        // Helper function to show loading state
+        function showLoading(containerId) {
+            debugLog(`Loading ${containerId}`);
+            const container = document.getElementById(containerId);
+            container.innerHTML = '<div class="loading">Loading visualization</div>';
+        }
+
+        // Initialize visualizations when the page loads
+        document.addEventListener('DOMContentLoaded', async function() {
+            debugLog('Document loaded, initializing visualizations');
+            
+            // Set default exam
+            currentExam = "Midterm_1";
+            
+            // Preload data for the default exam
+            try {
+                debugLog('Preloading data for default exam', currentExam);
+                await loadExamData(currentExam);
+                debugLog('Data loaded successfully');
+            } catch (error) {
+                debugLog('Error preloading data', error);
+            }
+            
+            // Create a custom bar race chart function since the one in script.js isn't working
+            // This will replace any call to the script.js version
+            window.createBarRaceChart = async function(containerId, metric = "EDA") {
+                debugLog(`Creating bar chart race visualization in ${containerId} for ${metric}`);
+                const container = document.getElementById(containerId);
+                if (!container) {
+                    debugLog('Container not found', containerId);
+                    return;
+                }
+                
+                // Clear container
+                container.innerHTML = '';
+                
+                try {
+                    // Get dataset 
+                    if (!examData[currentExam]) {
+                        await loadExamData(currentExam);
+                    }
+                    const dataset = examData[currentExam];
+                    if (!dataset) {
+                        showError(containerId, 'No Data', 'Failed to load dataset for visualization');
+                        return;
+                    }
+                    
+                    // Create the SVG container
+                    const margin = {top: 50, right: 120, bottom: 50, left: 80};
+                    const width = container.clientWidth - margin.left - margin.right;
+                    const height = 600 - margin.top - margin.bottom;
+                    
+                    const svg = d3.select(container)
+                        .append("svg")
+                        .attr("width", width + margin.left + margin.right)
+                        .attr("height", height + margin.top + margin.bottom)
+                        .append("g")
+                        .attr("transform", `translate(${margin.left},${margin.top})`);
+                    
+                    // Add title
+                    svg.append("text")
+                        .attr("x", width / 2)
+                        .attr("y", -20)
+                        .attr("text-anchor", "middle")
+                        .style("font-size", "18px")
+                        .style("font-weight", "bold")
+                        .text(`Student ${metric} Levels During ${currentExam.replace('_', ' ')}`);
+                    
+                    // Add time indicator
+                    const timeIndicator = svg.append("text")
+                        .attr("class", "time-indicator")
+                        .attr("x", width - 10)
+                        .attr("y", 0)
+                        .attr("text-anchor", "end")
+                        .style("font-size", "20px")
+                        .style("font-weight", "bold")
+                        .text("Start");
+                    
+                    // Process the data for the bar chart race
+                    const getDataAtTime = (timeIndex) => {
+                        const examDuration = currentExam === "Final" ? 180 : 90; // minutes
+                        const timePointsCount = 60; // we use 60 points for fallback data
+                        const timeMinutes = Math.floor(timeIndex * examDuration / 6); // 6 time points in our animation
+                        
+                        // Map timeMinutes to the closest data point in our dataset
+                        const dataPointIndex = Math.floor(timeMinutes * timePointsCount / examDuration);
+                        
+                        const studentData = [];
+                        Object.keys(dataset).forEach(student => {
+                            if (dataset[student].data && dataset[student].data[metric]) {
+                                // Get value at the specific time or closest available
+                                const timeData = dataset[student].data[metric];
+                                let value = 0;
+                                if (timeData && timeData.length > 0) {
+                                    if (dataPointIndex < timeData.length) {
+                                        value = timeData[dataPointIndex].value;
+                                    } else {
+                                        // Use last available value
+                                        value = timeData[timeData.length - 1].value;
+                                    }
+                                }
+                                
+                                studentData.push({
+                                    student: student,
+                                    value: value,
+                                    performance: dataset[student].performance || "Medium", // fallback to Medium
+                                    grade: dataset[student].grade || 70 // fallback grade
+                                });
+                            }
+                        });
+                        
+                        // Sort data by value
+                        return studentData.sort((a, b) => b.value - a.value);
+                    };
+                    
+                    // Initial data
+                    let data = getDataAtTime(0);
+                    
+                    // Set up scales
+                    const x = d3.scaleLinear()
+                        .domain([0, d3.max(data, d => d.value) * 1.1])
+                        .range([0, width]);
+                    
+                    const y = d3.scaleBand()
+                        .domain(data.map(d => d.student))
+                        .range([0, height])
+                        .padding(0.2);
+                    
+                    // Create color scale based on performance
+                    const colorScale = d3.scaleOrdinal()
+                        .domain(["Low", "Medium", "High"])
+                        .range(["#e63946", "#457b9d", "#2a9d8f"]);
+                    
+                    // Add x axis
+                    const xAxis = svg.append("g")
+                        .attr("transform", `translate(0,${height})`)
+                        .call(d3.axisBottom(x));
+                    
+                    // Add y axis
+                    const yAxis = svg.append("g")
+                        .call(d3.axisLeft(y));
+                    
+                    // Add x axis label
+                    svg.append("text")
+                        .attr("text-anchor", "middle")
+                        .attr("x", width / 2)
+                        .attr("y", height + 35)
+                        .text(getMetricAxisLabel(metric));
+                    
+                    // Create the bars
+                    const bars = svg.selectAll(".bar")
+                        .data(data, d => d.student)
+                        .enter()
+                        .append("rect")
+                        .attr("class", "bar")
+                        .attr("x", 0)
+                        .attr("y", d => y(d.student))
+                        .attr("width", d => x(d.value))
+                        .attr("height", y.bandwidth())
+                        .attr("fill", d => colorScale(d.performance));
+                    
+                    // Add value labels
+                    const valueLabels = svg.selectAll(".value-label")
+                        .data(data, d => d.student)
+                        .enter()
+                        .append("text")
+                        .attr("class", "value-label")
+                        .attr("x", d => x(d.value) + 5)
+                        .attr("y", d => y(d.student) + y.bandwidth() / 2)
+                        .attr("dy", ".35em")
+                        .text(d => formatMetricValue(d.value, metric))
+                        .style("fill", "#333");
+                    
+                    // Add student labels
+                    const studentLabels = svg.selectAll(".student-label")
+                        .data(data, d => d.student)
+                        .enter()
+                        .append("text")
+                        .attr("class", "student-label")
+                        .attr("x", -5)
+                        .attr("y", d => y(d.student) + y.bandwidth() / 2)
+                        .attr("dy", ".35em")
+                        .attr("text-anchor", "end")
+                        .text(d => d.student + ` (${d.grade})`)
+                        .style("fill", "#333");
+                    
+                    // Legend for performance colors
+                    const legend = svg.append("g")
+                        .attr("class", "legend")
+                        .attr("transform", `translate(${width + 20}, 50)`);
+                    
+                    const legendItems = ["High", "Medium", "Low"];
+                    
+                    legendItems.forEach((item, i) => {
+                        const legendItem = legend.append("g")
+                            .attr("transform", `translate(0, ${i * 25})`);
+                        
+                        legendItem.append("rect")
+                            .attr("width", 15)
+                            .attr("height", 15)
+                            .attr("fill", colorScale(item));
+                        
+                        legendItem.append("text")
+                            .attr("x", 25)
+                            .attr("y", 12.5)
+                            .attr("dy", ".15em")
+                            .text(`${item} Performance`);
+                    });
+                    
+                    // Initialize time slider max value
+                    const timeSlider = document.getElementById('time-slider');
+                    timeSlider.max = 5; // 6 time points (0-5)
+                    timeSlider.value = 0;
+                    
+                    // Update function for animation
+                    const updateVisualization = (timeIndex, progress = 0) => {
+                        const currentData = getDataAtTime(timeIndex);
+                        const nextData = getDataAtTime(Math.min(5, timeIndex + 1));
+                        
+                        // Interpolate between current and next data for smooth animation
+                        const interpolatedData = currentData.map(item => {
+                            const nextItem = nextData.find(d => d.student === item.student);
+                            if (nextItem) {
+                                return {
+                                    ...item,
+                                    value: item.value + (nextItem.value - item.value) * progress
+                                };
+                            }
+                            return item;
+                        });
+                        
+                        // Sort the interpolated data
+                        interpolatedData.sort((a, b) => b.value - a.value);
+                        
+                        // Update x scale domain
+                        x.domain([0, d3.max(interpolatedData, d => d.value) * 1.1]);
+                        
+                        // Update y scale domain with the new order
+                        y.domain(interpolatedData.map(d => d.student));
+                        
+                        // Update axes with transition
+                        svg.select("g")
+                            .attr("transform", `translate(0,${height})`)
+                            .transition()
+                            .duration(100)
+                            .call(d3.axisBottom(x));
+                        
+                        svg.select("g")
+                            .transition()
+                            .duration(100)
+                            .call(d3.axisLeft(y));
+                        
+                        // Update the bars
+                        bars.data(interpolatedData, d => d.student)
+                            .transition()
+                            .duration(100)
+                            .attr("y", d => y(d.student))
+                            .attr("width", d => x(d.value))
+                            .attr("fill", d => colorScale(d.performance));
+                        
+                        // Update value labels
+                        valueLabels.data(interpolatedData, d => d.student)
+                            .transition()
+                            .duration(100)
+                            .attr("x", d => x(d.value) + 5)
+                            .attr("y", d => y(d.student) + y.bandwidth() / 2)
+                            .text(d => formatMetricValue(d.value, metric));
+                        
+                        // Update student labels
+                        studentLabels.data(interpolatedData, d => d.student)
+                            .transition()
+                            .duration(100)
+                            .attr("y", d => y(d.student) + y.bandwidth() / 2);
+                        
+                        // Update time indicator
+                        const examDuration = currentExam === "Final" ? 180 : 90; // minutes
+                        const timeMinutes = Math.floor(timeIndex * examDuration / 6) + 
+                            Math.floor((examDuration / 6) * progress);
+                        timeIndicator.text(`${timeMinutes} min`);
+                    };
+                    
+                    // Store references to functions for external access
+                    window.updateBarRaceVisualization = () => {
+                        const container = document.getElementById(containerId);
+                        if (container && container._currentTimeIndex !== undefined) {
+                            updateVisualization(container._currentTimeIndex, container._animationProgress || 0);
+                        }
+                    };
+                    
+                    window.resetBarRaceAnimation = () => {
+                        updateVisualization(0, 0);
+                    };
+                    
+                    // Store the data and update function in the container
+                    container._updateVisualization = updateVisualization;
+                    container._currentTimeIndex = 0;
+                    container._animationProgress = 0;
+                    container._isPlaying = false;
+                    
+                    debugLog('Bar chart race created successfully');
+                    return updateVisualization;
+                } catch (error) {
+                    debugLog('Error creating bar chart race', error);
+                    showError(containerId, 'Visualization Error', 'Failed to create the bar chart race visualization.');
+                }
+            };
+            
+            // Helper functions for formatting
+            function getMetricAxisLabel(metric) {
+                switch (metric) {
+                    case 'EDA': return 'Electrodermal Activity (µS)';
+                    case 'HR': return 'Heart Rate (BPM)';
+                    case 'BVP': return 'Blood Volume Pulse';
+                    case 'TEMP': return 'Temperature (°C)';
+                    default: return metric;
+                }
+            }
+            
+            function formatMetricValue(value, metric) {
+                if (value === undefined || value === null) return 'N/A';
+                
+                switch (metric) {
+                    case 'EDA': return value.toFixed(2) + ' µS';
+                    case 'HR': return Math.round(value) + ' BPM';
+                    case 'BVP': return value.toFixed(2);
+                    case 'TEMP': return value.toFixed(1) + '°C';
+                    default: return value.toFixed(2);
+                }
+            }
+            
+            // Initialize with default values
+            try {
+                // Initialize bar race chart
+                const defaultMetric = 'EDA';
+                createBarRaceChart('bar-race-container', defaultMetric);
+                
+                // Add event listeners for controls
+                document.getElementById('bar-race-metric').addEventListener('change', function() {
+                    debugLog('Bar race metric changed', this.value);
+                    showLoading('bar-race-container');
+                    setTimeout(() => {
+                        try {
+                            createBarRaceChart('bar-race-container', this.value);
+                        } catch (error) {
+                            debugLog('Error updating bar race chart', error);
+                            showError('bar-race-container', 'Update Error', 'Failed to update the visualization. Please try again.');
+                        }
+                    }, 100);
+                });
+
+                document.getElementById('bar-race-exam').addEventListener('change', function() {
+                    debugLog('Bar race exam changed', this.value);
+                    showLoading('bar-race-container');
+                    setTimeout(async () => {
+                        try {
+                            currentExam = this.value;
+                            await loadExamData(currentExam);
+                            createBarRaceChart('bar-race-container', document.getElementById('bar-race-metric').value);
+                        } catch (error) {
+                            debugLog('Error updating bar race chart', error);
+                            showError('bar-race-container', 'Update Error', 'Failed to update the visualization. Please try again.');
+                        }
+                    }, 100);
+                });
+
+                // Add event listeners for play/pause and reset buttons
+                document.getElementById('play-button').addEventListener('click', function() {
+                    const barRaceContainer = document.getElementById('bar-race-container');
+                    if (barRaceContainer._isPlaying) {
+                        // Pause animation
+                        this.textContent = 'Play';
+                        this.style.backgroundColor = '#4CAF50';
+                        barRaceContainer._isPlaying = false;
+                        if (barRaceContainer._animationTimer) {
+                            clearInterval(barRaceContainer._animationTimer);
+                            barRaceContainer._animationTimer = null;
+                        }
+                    } else {
+                        // Start animation
+                        this.textContent = 'Pause';
+                        this.style.backgroundColor = '#e63946';
+                        barRaceContainer._isPlaying = true;
+                        
+                        // Restart animation if at the end
+                        if (barRaceContainer._currentTimeIndex >= 6) {
+                            barRaceContainer._currentTimeIndex = 0;
+                            document.getElementById('time-slider').value = 0;
+                        }
+                        
+                        // Find animation function
+                        if (typeof startBarRaceAnimation === 'function') {
+                            startBarRaceAnimation();
+                        } else {
+                            debugLog('Animation function not found');
+                        }
+                    }
+                });
+                
+                document.getElementById('reset-button').addEventListener('click', function() {
+                    const barRaceContainer = document.getElementById('bar-race-container');
+                    const playButton = document.getElementById('play-button');
+                    
+                    // Reset animation state
+                    barRaceContainer._isPlaying = false;
+                    barRaceContainer._currentTimeIndex = 0;
+                    barRaceContainer._animationProgress = 0;
+                    
+                    // Reset UI
+                    playButton.textContent = 'Play';
+                    playButton.style.backgroundColor = '#4CAF50';
+                    document.getElementById('time-slider').value = 0;
+                    
+                    // Clear animation timer
+                    if (barRaceContainer._animationTimer) {
+                        clearInterval(barRaceContainer._animationTimer);
+                        barRaceContainer._animationTimer = null;
+                    }
+                    
+                    // Find reset function
+                    if (typeof resetBarRaceAnimation === 'function') {
+                        resetBarRaceAnimation();
+                    } else {
+                        debugLog('Reset function not found');
+                        // Refresh visualization
+                        createBarRaceChart('bar-race-container', document.getElementById('bar-race-metric').value);
+                    }
+                });
+                
+                // Add event listener for time slider
+                document.getElementById('time-slider').addEventListener('input', function() {
+                    const barRaceContainer = document.getElementById('bar-race-container');
+                    const playButton = document.getElementById('play-button');
+                    
+                    // Pause animation if playing
+                    if (barRaceContainer._isPlaying) {
+                        barRaceContainer._isPlaying = false;
+                        playButton.textContent = 'Play';
+                        playButton.style.backgroundColor = '#4CAF50';
+                        if (barRaceContainer._animationTimer) {
+                            clearInterval(barRaceContainer._animationTimer);
+                            barRaceContainer._animationTimer = null;
+                        }
+                    }
+                    
+                    // Update time index and reset progress
+                    barRaceContainer._currentTimeIndex = parseInt(this.value);
+                    barRaceContainer._animationProgress = 0;
+                    
+                    // Find update function
+                    if (typeof updateBarRaceVisualization === 'function') {
+                        updateBarRaceVisualization();
+                    } else {
+                        debugLog('Update function not found');
+                    }
+                });
+            } catch (error) {
+                debugLog('Error initializing visualizations', error);
+                showError('bar-race-container', 'Initialization Error', 'Failed to initialize visualization.');
+            }
+            
+            // Toggle debug panel with keyboard shortcut
+            document.addEventListener('keydown', function(e) {
+                if (e.key === 'D' && e.ctrlKey && e.shiftKey) {
+                    const panel = document.getElementById('debug-panel');
+                    panel.style.display = panel.style.display === 'none' ? 'block' : 'none';
+                }
+            });
+        });
+    </script>
+    <script src="biometric-bar-race.js"></script>
+</body>
+</html> 
