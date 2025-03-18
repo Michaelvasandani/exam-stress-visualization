@@ -1,6 +1,6 @@
 document.addEventListener("DOMContentLoaded", function () {
-  // Path to the single consolidated JSON file
-  const dataFilePath = "json/all_data.json";
+  // Path to the data directory
+  const dataDirectory = "data/";
   
   const availableMetrics = {
     "EDA": "Electrodermal Activity (μS)",
@@ -34,6 +34,8 @@ document.addEventListener("DOMContentLoaded", function () {
   let brushEnabled = false;
   let currentStudent = null;
   let currentMetric = null;
+  let loadingCount = 0;
+  let totalLoadingFiles = 0;
 
   // Create responsive dimensions
   const containerWidth = document.querySelector('.chart-container').clientWidth;
@@ -123,7 +125,7 @@ document.addEventListener("DOMContentLoaded", function () {
         <h3>Project Writeup</h3>
         <p>
           <strong>What have you done so far?</strong><br><br>
-          We have created an interactive visualization dashboard that tracks student’s physiological responses during exams. Our implementation includes a real-time monitoring of electrodermal activity, heart rate and body temperature to provide the viewer with various insights on stress levels from student to student. We have also created an D3.js visualization that allows the viewer to select individual students and specific metrics to customize their current interface. Our visualization is a time- line graph for each metric, with shadings for presentation reasons. We have included tooltips, zoom functionality as well as statistical summaries for each graph to speed up the user’s analysis process.   
+          We have created an interactive visualization dashboard that tracks student's physiological responses during exams. Our implementation includes a real-time monitoring of electrodermal activity, heart rate and body temperature to provide the viewer with various insights on stress levels from student to student. We have also created an D3.js visualization that allows the viewer to select individual students and specific metrics to customize their current interface. Our visualization is a time- line graph for each metric, with shadings for presentation reasons. We have included tooltips, zoom functionality as well as statistical summaries for each graph to speed up the user's analysis process.   
           <br><br>
           <strong>What will be the most challenging part of your project to design and why?</strong><br><br>
           The most challenging aspect of the project will be making the title give the user something to look out for while being creative. Therefore, our thought process and getting to this final stage where we are able to immediately captivate the reader in a way, which gives them instantaneous information but also inspires them to conduct their own exploratory analysis. Right now , we are really happy with how the page looks. Perhaps, we could add some additional usability features, but as a prototype it looks quite good. The most challenging bit is definitely the title and then coordinating the visualization in that way. This is definitely the major step we will try and take for the next stage of this project .
@@ -167,82 +169,143 @@ document.addEventListener("DOMContentLoaded", function () {
     metricSelect.append("option").attr("value", value).text(label);
   });
 
-  // Create sample data for initial display
-  createSampleData();
-
-  // Handle window resize
-  window.addEventListener('resize', debounce(function() {
-    updateDimensions();
-    updateChart();
-  }, 250));
-
-  function updateDimensions() {
-    const containerWidth = document.querySelector('.chart-container').clientWidth;
-    const containerHeight = document.querySelector('.chart-container').clientHeight;
-    
-    svg.attr("width", containerWidth)
-       .attr("height", containerHeight);
-    
-    const width = containerWidth - margin.left - margin.right;
-    const height = containerHeight - margin.top - margin.bottom;
-    
-    xScale.range([0, width]);
-    yScale.range([height, 0]);
-    
-    brush.extent([[0, 0], [width, height]]);
-  }
-
-  function createSampleData() {
-    // Create sample data for initial display until real data is loaded
-    fullDataset = {};
-    
-    Object.keys(studentGrades).forEach(student => {
-      fullDataset[student] = {};
-      Object.keys(availableMetrics).forEach(metric => {
-        const data = [];
-        const startTime = new Date(2023, 0, 1, 9, 0, 0).getTime() / 1000; // 9:00 AM
-        
-        for (let i = 0; i < 120; i++) {
-          let baseValue;
-          switch(metric) {
-            case 'HR': baseValue = 70 + Math.random() * 30; break;
-            case 'EDA': baseValue = 5 + Math.random() * 10; break;
-            case 'TEMP': baseValue = 36 + Math.random() * 1.5; break;
-            default: baseValue = 10 + Math.random() * 10;
+  // Load data from CSV files for a specific student and metric
+  function loadCsvData(student, metric, examType = "Final") {
+    return new Promise((resolve, reject) => {
+      const filePath = `${dataDirectory}${student}/${examType}/${metric}.csv`;
+      
+      d3.text(filePath)
+        .then(function(csvText) {
+          if (!csvText || csvText.trim() === "") {
+            console.warn(`Empty CSV file for ${student}, ${metric}`);
+            resolve([]);
+            return;
           }
           
-          data.push({
-            timestamp: startTime + (i * 60),
-            value: baseValue
+          const lines = csvText.trim().split('\n');
+          
+          if (lines.length < 3) {
+            console.warn(`Not enough data in CSV for ${student}, ${metric}`);
+            resolve([]);
+            return;
+          }
+          
+          // First line is the timestamp (in UTC)
+          const startTimestamp = parseFloat(lines[0]);
+          
+          // Second line is the sample rate in Hz
+          const sampleRate = parseFloat(lines[1]);
+          
+          if (isNaN(startTimestamp) || isNaN(sampleRate)) {
+            console.error(`Invalid timestamp or sample rate in ${filePath}`);
+            resolve([]);
+            return;
+          }
+          
+          // The rest are data points
+          const dataValues = lines.slice(2).map(value => parseFloat(value));
+          
+          // Create formatted data array with timestamps and values
+          const formattedData = dataValues.map((value, index) => {
+            // Calculate the timestamp for each data point based on sample rate
+            const timestamp = startTimestamp + (index / sampleRate);
+            return {
+              timestamp: timestamp,
+              value: value
+            };
           });
-        }
-        
-        fullDataset[student][metric] = data;
-      });
+          
+          // Return evenly sampled data to reduce points for visualization
+          // For high frequency data, we'll sample fewer points
+          let sampledData;
+          if (formattedData.length > 1000) {
+            const samplingFactor = Math.floor(formattedData.length / 1000);
+            sampledData = formattedData.filter((_, i) => i % samplingFactor === 0);
+          } else {
+            sampledData = formattedData;
+          }
+          
+          resolve(sampledData);
+        })
+        .catch(function(error) {
+          console.error(`Error loading ${filePath}:`, error);
+          reject(error);
+        });
     });
-    
-    // Set initial selections
-    currentStudent = Object.keys(studentGrades)[0];
-    currentMetric = Object.keys(availableMetrics)[0];
-    
-    // Set dropdown values
-    document.getElementById('student-select').value = currentStudent;
-    document.getElementById('metric-select').value = currentMetric;
-    
-    updateChart();
   }
 
   // Load data and initialize
-  d3.json(dataFilePath)
-    .then(function (consolidatedData) {
-      console.log("Loaded consolidated data");
-      fullDataset = consolidatedData;
-      updateChart();
-    })
-    .catch((error) => {
-      console.error("Error loading consolidated data:", error);
-      // We already have sample data, so we can continue
+  function loadAllData() {
+    fullDataset = {};
+    const students = Object.keys(studentGrades);
+    const metrics = Object.keys(availableMetrics);
+    const examType = "Final"; // We'll start with just the Final exam data
+    
+    // Calculate total files to load for progress tracking
+    totalLoadingFiles = students.length * metrics.length;
+    loadingCount = 0;
+    
+    // Add a loading indicator
+    d3.select('.chart-container')
+      .append('div')
+      .attr('class', 'loading-indicator')
+      .html('Loading data from CSV files... <span id="loading-progress">0%</span>');
+    
+    // Create promises for all data loading
+    const loadPromises = [];
+    
+    students.forEach(student => {
+      fullDataset[student] = {};
+      
+      metrics.forEach(metric => {
+        const promise = loadCsvData(student, metric, examType)
+          .then(data => {
+            fullDataset[student][metric] = data;
+            
+            // Update loading progress
+            loadingCount++;
+            const progress = Math.round((loadingCount / totalLoadingFiles) * 100);
+            d3.select('#loading-progress').text(`${progress}%`);
+            
+            return data;
+          })
+          .catch(error => {
+            console.error(`Failed to load data for ${student}, ${metric}:`, error);
+            // Provide empty data as fallback
+            fullDataset[student][metric] = [];
+            
+            // Still update loading count
+            loadingCount++;
+            const progress = Math.round((loadingCount / totalLoadingFiles) * 100);
+            d3.select('#loading-progress').text(`${progress}%`);
+          });
+          
+        loadPromises.push(promise);
+      });
     });
+    
+    // When all data is loaded
+    Promise.all(loadPromises)
+      .then(() => {
+        // Remove loading indicator
+        d3.select('.loading-indicator').remove();
+        
+        // Set initial selections
+        currentStudent = Object.keys(studentGrades)[0];
+        currentMetric = Object.keys(availableMetrics)[0];
+        
+        // Set dropdown values
+        document.getElementById('student-select').value = currentStudent;
+        document.getElementById('metric-select').value = currentMetric;
+        
+        updateChart();
+      })
+      .catch(error => {
+        console.error("Error loading data:", error);
+        // Remove loading indicator and show error
+        d3.select('.loading-indicator').html('Error loading data. Please try refreshing the page.');
+      });
+  }
 
   function displayData(student, metric) {
     if (!fullDataset || !fullDataset[student] || !fullDataset[student][metric]) {
@@ -686,6 +749,31 @@ document.addEventListener("DOMContentLoaded", function () {
     // Keep zoom when changing metric
     updateChart();
   });
+
+  // Load data immediately instead of using sample data
+  loadAllData();
+
+  // Handle window resize
+  window.addEventListener('resize', debounce(function() {
+    updateDimensions();
+    updateChart();
+  }, 250));
+
+  function updateDimensions() {
+    const containerWidth = document.querySelector('.chart-container').clientWidth;
+    const containerHeight = document.querySelector('.chart-container').clientHeight;
+    
+    svg.attr("width", containerWidth)
+       .attr("height", containerHeight);
+    
+    const width = containerWidth - margin.left - margin.right;
+    const height = containerHeight - margin.top - margin.bottom;
+    
+    xScale.range([0, width]);
+    yScale.range([height, 0]);
+    
+    brush.extent([[0, 0], [width, height]]);
+  }
 });
 
 // Debounce function
